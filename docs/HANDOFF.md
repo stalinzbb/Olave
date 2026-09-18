@@ -36,7 +36,9 @@ Verified:
 - Security headers and the nonce CSP are served; no console or CSP errors on `/login`.
 - Studio + results grid + cell drawer + tabs rendered correctly against **fixture data** through a temporary page (since deleted).
 
-**Not verified — nobody has run this against a real Supabase project.** The machine had no Supabase credentials, no Docker and no Supabase CLI. Untested in practice: sign-in, every DB query (including the PostgREST embed `runs!runs_eval_id_fkey` in `app/(app)/evals/page.tsx`), the RLS policies, run streaming end to end, live OpenRouter calls, live Jev calls, dataset upload, compare with real data. Expect small bugs here. First job for the next person: do §6 "First run" and fix what breaks.
+Verified against a real Supabase project in mock mode (2026-09-18, no provider keys set): sign-in, RLS as an authenticated user, evals list (including the `runs!runs_eval_id_fkey` embed), create eval, run with streaming (4 cells persisted), create code + Jev graders, "test on 5 cells", pin graders → spec v2 → graded run, Runs tab, Compare, promote to baseline, dataset upload with `reference`/`tags` columns. One bug found and fixed on the way: grader defaults were exported from a `"use client"` module and read by a server page (now `lib/grader-defaults.ts`).
+
+**Still not verified:** live OpenRouter completions, live Jev grading, the LLM judge, a Dataset cases factor inside a run, resume of an interrupted run, runs near the 500-cell cap or the 300 s limit, and a production deploy.
 
 ## 3. Map of the code
 
@@ -79,6 +81,7 @@ app/api/…                    auth/login (only unauthenticated handler), auth/l
 components/kit.tsx           Chip, PageHeader, Stat, Empty, Banner, Bar, FACTOR_TONE (server-safe, no hooks)
 components/studio.tsx        The single eval editor + run driver (client)
 components/results.tsx       Stats, grid/table views, cell drawer (client)
+lib/grader-defaults.ts       Default configs per engine (plain module: server pages read it)
 components/grader-editor.tsx All three engines' forms + "test on 5 cells" (client)
 components/actions.tsx       NewEvalButton, ActionButton, RunPicker (client)
 components/nav.tsx, dataset-upload.tsx
@@ -127,7 +130,7 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 - Old env vars no longer used: `APP_ACCESS_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY` (remove it from any deployment — it is a high-privilege secret the new app never needs), `OPENROUTER_REFERER`, `OPENROUTER_TITLE`.
 - Removed packages: `@base-ui/react`, `vaul`, `shadcn`, `class-variance-authority`, `lucide-react`, `tw-animate-css`, `clsx`, `tailwind-merge`, `@vercel/analytics`. Added: `@supabase/ssr`, `zod`, `server-only`, `@typesafe-ai/sdk`.
 
-## 6. First run (not yet done by anyone)
+## 6. First run (done once in mock mode; repeat for a new environment)
 
 1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`.
 2. Supabase → Authentication: disable "Allow new users to sign up"; invite a user; set a password.
@@ -138,7 +141,7 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 
 ## 7. Backlog, in suggested order
 
-1. Make §6 pass; fix whatever the first real-DB run exposes.
+1. Do the live-key pass in §6 step 6 and the remaining unverified items in §2.
 2. **Human review loop** (designs: Review queue, Grading session, Grader → Calibration): blind grading (model/params hidden until scored), keyboard 1–5, `flagged` grades + judge/code disagreement as the sampling feed, Cohen's κ per criterion, human × judge confusion matrix. Needs a `human_grades` table. Jev-vs-judge agreement on the same rubric is nearly free once this exists.
 3. Queue-backed runner (runs currently live inside one request; see the `ponytail:` note in `runner.ts`).
 4. Results: Side-by-side and Cards views, "add to golden set", re-run a single cell ×N.

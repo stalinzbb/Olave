@@ -77,7 +77,7 @@ export default async function EvalPage({ params, searchParams }: { params: Promi
                         <td className={`td font-mono text-xs ${delta !== null && delta < 0 ? "text-bad" : "text-ink-2"}`}>{signed(delta)}</td>
                         <td className="td text-xs tabular-nums">{fmtPct(entry.summary.passRate)}</td>
                         <td className="td text-xs tabular-nums">{fmtCost(entry.summary.cost)}</td>
-                        <td className="td"><Chip tone={entry.run.status === "completed" ? (passes ? "good" : "warn") : entry.run.status === "failed" ? "bad" : "info"}>{entry.run.status === "completed" ? (passes ? "passed" : "below threshold") : entry.run.status}</Chip></td>
+                        <td className="td"><Chip tone={entry.run.status === "completed" ? (entry.summary.score === null ? "gray" : passes ? "good" : "warn") : entry.run.status === "failed" ? "bad" : "info"}>{entry.run.status === "completed" ? (entry.summary.score === null ? "unscored" : passes ? "passed" : "below threshold") : entry.run.status}</Chip></td>
                         <td className="td text-right">{entry.run.status === "completed" && entry.run.id !== record.baseline_run_id ? <ActionButton path={`/api/evals/${id}/baseline`} body={{ runId: entry.run.id }} label="Promote to baseline" /> : null}</td>
                       </tr>
                     );
