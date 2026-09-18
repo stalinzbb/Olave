@@ -6,7 +6,8 @@ import {
   renderTemplate,
   validateTemplate,
 } from "@/lib/template";
-import type { VariableDefinition } from "@/lib/types/eval";
+
+type VariableDefinition = { key: string } & Record<string, unknown>;
 
 function def(key: string, overrides: Partial<VariableDefinition> = {}): VariableDefinition {
   return {

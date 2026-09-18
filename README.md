@@ -1,59 +1,45 @@
-# LLM Eval Builder
+# LLM Evals
 
-Build and run evals for any LLM-generated content — invite messages, essays, blog posts, product copy, anything. Define reusable prompt templates with `{{variable}}` tokens, feed the variables manually, randomly from saved datasets, or in bulk from a CSV, and compare outputs across models side by side.
+An eval harness for LLM output. An **eval** is a versioned spec of *prompt × factors × graders*. A **run** fans the prompt out into **cells** (one per factor combination), every cell is scored by the pinned **graders**, and runs are compared against a promoted **baseline** to catch regressions.
 
-## Features
+## Concepts
 
-- **Eval Builder** — define an eval as a set of variables, one or more prompt templates using `{{variable}}` tokens, and a custom scoring rubric. Templates are validated live (unknown variables are flagged) with a resolved-value preview.
-- **Variable sourcing** — each variable can be entered manually, sampled randomly from a saved **dataset** (reusable value list, fillable by paste or CSV column import), or supplied per-row from a CSV in batch runs. Inline overrides like `{{tone|random}}` are supported; `\{{` escapes a literal brace.
-- **Playground** — fill an eval's variables in a dynamic form, run against one model or several variants side by side, with per-variant temperature/top-p/token/seed overrides.
-- **Batches** — upload a CSV where each row is one run. Columns auto-map to variables (with a manual mapping UI); every row runs through every model variant.
-- **History & ratings** — every run is saved with its resolved variable values, token/cost/latency metrics, and a rating form generated from the eval's rubric.
-- **Bring your own key** — paste your OpenRouter API key in Settings. It's stored only in your browser's localStorage and attached per-request; it is never persisted server-side. One key unlocks all supported models (GPT, Claude, Gemini, and more).
-- **Zero-config demo mode** — no key, no database? The app stores data in a local JSON file and returns mock output so you can explore the whole flow.
+- **Factors** multiply the run: models, variable values, parameter sweeps, system-prompt variants, dataset cases. `2 models × 2 tones × 5 cases = 20 cells`. Runs are capped at 500 cells.
+- **Graders** are versioned and immutable; evals pin a version, so tightening a rubric never silently rescores history.
+  - **Jev** (TypeSafe System One): each rubric criterion is one Score question whose levels are your descriptors; yes/no checks are Nouls. One request per cell. Weights, thresholds and pass/fail are composed in code; low-confidence grades are flagged for human review.
+  - **LLM judge**: a reasoning model scores the same rubric shape and returns a rationale. It is never allowed to be the model under test.
+  - **Code check**: declarative only (word limits, regex, contains, JSON shape, match against a `reference` column). Nothing a user types is ever executed.
+- **Compare** lines two runs up by factor combination: score/pass/latency/cost deltas, per-factor deltas, and a list of cells that dropped ≥ 0.10. Promote a run to baseline from there.
 
-## Quickstart
+## Setup
 
-Requires Node.js ≥ 20.
+Requires Node.js ≥ 20 and a Supabase project.
 
-```bash
-npm install
-npm run dev
-```
+1. In the Supabase SQL editor run `supabase/migrations/0001_rebuild.sql`. If this project held the old jsonb tables, run `0000_drop_legacy.sql` first (it is destructive; export anything you need).
+2. In Supabase **Authentication → Sign In / Providers**, turn **off** "Allow new users to sign up", then invite yourself under **Authentication → Users**. The invited-user list is the allowlist.
+3. `cp .env.example .env.local` and fill it in. Without `OPENROUTER_API_KEY` runs return mock output; without `TYPESAFE_API_KEY` Jev graders are skipped.
+4. `npm install && npm run dev`
 
-That's it — open http://localhost:3000. Data persists to `.runtime/dg-llm-evals.json` and model calls return mock output until a key is configured.
+## Security model
 
-To call real models, either paste an [OpenRouter](https://openrouter.ai) key in **Settings → OpenRouter API Key** (per-browser), or set `OPENROUTER_API_KEY` server-side (see `.env.example`).
-
-## Hosted persistence (Supabase, optional)
-
-1. Create a [Supabase](https://supabase.com) project.
-2. Run [`supabase/schema.sql`](supabase/schema.sql) in the SQL editor (idempotent — safe to re-run after upgrades).
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-
-### Free-tier keep-alive
-
-Supabase pauses free-tier projects after ~1 week of inactivity. This repo ships a GitHub Actions workflow ([`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml)) that pings `/api/keepalive` twice a week. Set the `KEEPALIVE_URL` repository variable to `https://<your-deployment>/api/keepalive` to enable it.
-
-## Access gate (optional)
-
-Set `APP_ACCESS_PASSWORD` to require a shared password. Leave it unset to run without a login page.
+- Provider keys exist **only** as server environment variables, read in one file (`lib/server/env.ts`). They are never accepted from the browser, stored in the database, logged, or returned; Settings can only see whether each is set.
+- Everything under `lib/server/` imports `server-only`: importing it from client code fails the build. `npm run check:leaks` greps the built client bundle for key names, key values and the TypeSafe SDK.
+- There is no service-role key. The server talks to Supabase with the signed-in user's session, and RLS is enabled on every table.
+- Every API handler goes through `route()` (`lib/server/http.ts`): session required, cross-origin writes refused, input parsed with zod, errors redacted (`lib/redact.ts`) before they are stored, logged or returned. `proxy.ts` repeats the session check and fails closed when Supabase is not configured.
+- A per-request nonce CSP (`connect-src 'self'`): the browser never calls Supabase or a model provider directly. Model output is rendered as text only and is wrapped as data in grader prompts.
 
 ## Scripts
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Dev server |
-| `npm run build` | Production build |
-| `npm test` | Unit tests (template engine, variable resolution) |
+| `npm run dev` / `npm run build` | Dev server / production build |
+| `npm test` | Unit tests: factor expansion, graders, run comparison, redaction, templates |
+| `npm run check:leaks` | After a build, fail if anything secret-shaped is in the client bundle |
 | `npm run lint` / `npm run typecheck` | Static checks |
 
-## Architecture notes
+## Not built yet
 
-- Next.js (Pages Router) + React + TypeScript + Tailwind/shadcn.
-- Storage is a dual backend: Supabase when configured, local JSON otherwise (`lib/store.ts`).
-- Template engine: `lib/template.ts` (parse/validate/render). Variable resolution: `lib/resolve-variables.ts` (manual/random/CSV, seeded RNG for reproducible sampling).
-- Model calls go through OpenRouter (`lib/openrouter.ts`); a BYOK key arrives via the `x-openrouter-key` header and falls back to the server env key, then mock mode.
+Teams, roles and budgets; the human review queue with blind grading and judge calibration (Cohen's κ); prompt library; scheduled and CI-triggered runs. Runs execute inside the request (`maxDuration` 300s) and can be resumed; move to a queue when they outgrow that.
 
 ## License
 
