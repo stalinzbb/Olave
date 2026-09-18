@@ -112,12 +112,23 @@ create index on runs (eval_id, created_at desc);
 create index on cells (run_id);
 create index on grades (cell_id);
 
-do $$
-declare t text;
-begin
-  foreach t in array array['evals','eval_versions','datasets','dataset_rows','graders','grader_versions','runs','cells','grades']
-  loop
-    execute format('alter table %I enable row level security', t);
-    execute format('create policy %I on %I for all to authenticated using (true) with check (true)', t || '_authenticated', t);
-  end loop;
-end $$;
+-- Written out per table (not looped) so it is auditable at a glance and Supabase's SQL editor can see it.
+alter table evals enable row level security;
+alter table eval_versions enable row level security;
+alter table datasets enable row level security;
+alter table dataset_rows enable row level security;
+alter table graders enable row level security;
+alter table grader_versions enable row level security;
+alter table runs enable row level security;
+alter table cells enable row level security;
+alter table grades enable row level security;
+
+create policy evals_authenticated on evals for all to authenticated using (true) with check (true);
+create policy eval_versions_authenticated on eval_versions for all to authenticated using (true) with check (true);
+create policy datasets_authenticated on datasets for all to authenticated using (true) with check (true);
+create policy dataset_rows_authenticated on dataset_rows for all to authenticated using (true) with check (true);
+create policy graders_authenticated on graders for all to authenticated using (true) with check (true);
+create policy grader_versions_authenticated on grader_versions for all to authenticated using (true) with check (true);
+create policy runs_authenticated on runs for all to authenticated using (true) with check (true);
+create policy cells_authenticated on cells for all to authenticated using (true) with check (true);
+create policy grades_authenticated on grades for all to authenticated using (true) with check (true);
