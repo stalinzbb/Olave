@@ -76,7 +76,7 @@ export async function complete(input: {
     if (attempt) await sleep(800 * 2 ** attempt + Math.random() * 400);
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "LLM Evals" },
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "Olave" },
       body: JSON.stringify({
         model: input.model,
         messages: [

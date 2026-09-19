@@ -8,7 +8,7 @@ const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree" });
 // Every page is rendered per request so Next can stamp the CSP nonce from proxy.ts onto its scripts.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "LLM Evals", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Olave", robots: { index: false, follow: false } };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
