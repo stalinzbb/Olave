@@ -52,7 +52,16 @@ export function Studio(props: StudioProps) {
   const rowsByDataset = useMemo(() => Object.fromEntries(props.datasets.map((d) => [d.id, d.rows])), [props.datasets]);
   const axes = useMemo(() => buildAxes(spec, rowsByDataset), [spec, rowsByDataset]);
   const total = countCells(axes);
-  const issues = useMemo(() => specIssues(spec, axes), [spec, axes]);
+  const issues = useMemo(() => {
+    const found = specIssues(spec, axes);
+    const allowed = new Set(props.models.map((m) => m.id));
+    const used = new Set([spec.model, ...spec.factors.flatMap((f) => (f.kind === "models" && f.enabled ? f.values : []))]);
+    if (spec.factors.some((f) => f.kind === "models" && f.enabled)) used.delete(spec.model);
+    const blocked = [...used].filter((model) => !allowed.has(model));
+    // Mirrors the server-side check in createRun, so the problem shows before the run is refused.
+    if (blocked.length) found.push(`Not on the platform's model list: ${blocked.join(", ")}. Add it under Library → Models or swap it out.`);
+    return found;
+  }, [spec, axes, props.models]);
   const variables = useMemo(
     () => [...new Set([spec.systemPrompt, spec.userTemplate, ...spec.factors.flatMap((f) => (f.kind === "prompt" ? f.values : []))].flatMap(extractVariables))],
     [spec],

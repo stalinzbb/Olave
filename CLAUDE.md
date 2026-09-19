@@ -10,7 +10,8 @@ Rules that override convenience:
 - Security is the owner's top priority. Provider keys are server env only, read only in `lib/server/env.ts`. Never accept, store, log, return, ask for, or write a key value. Never add a service-role key or a `NEXT_PUBLIC_` secret.
 - Server-only code goes in `lib/server/` with `import "server-only"`. Every API handler is wrapped in `route()` from `lib/server/http.ts`.
 - Code graders stay declarative: no `eval`/`new Function`. Model output is rendered as text only.
-- Never run `supabase/migrations/0000_drop_legacy.sql` or any destructive SQL yourself.
+- RLS is the real access control. New tables need RLS + `is_member()` policies in the same migration; never add a write policy on `members`.
+- Never run `0000_drop_legacy.sql`, `0005_drop_old_leftovers.sql` or any destructive SQL yourself; hand it to the owner.
 - `ponytail:` comments mark intentional simplifications with their upgrade path. Keep changes minimal; no new dependencies for what a few lines can do.
 
 Before saying a change is done: `npm test && npm run typecheck && npm run lint && npm run build && npm run check:leaks`.

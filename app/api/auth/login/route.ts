@@ -15,6 +15,12 @@ export async function POST(request: Request) {
     const { error } = await supabase.auth.signInWithPassword(input);
     // Same message whether the email exists or not.
     if (error) return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
+    // Signed in to Supabase but not in `members`: RLS would show them an empty app, so say why and end the session.
+    const member = await supabase.rpc("is_member");
+    if (!member.error && member.data === false) {
+      await supabase.auth.signOut();
+      return NextResponse.json({ error: "This account is not a member of this workspace." }, { status: 403 });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return errorResponse(error);

@@ -4,7 +4,7 @@ import { NewEvalButton } from "@/components/actions";
 import { Chip, Empty, FACTOR_TONE, PageHeader, type Tone } from "@/components/kit";
 import { summarise } from "@/lib/compare";
 import { fmtScore, scoreTone, toScoredCells } from "@/lib/results";
-import { getRun, must } from "@/lib/server/data";
+import { getRun, listPlatformModels, must } from "@/lib/server/data";
 import { requireUser } from "@/lib/server/supabase";
 import { evalSpecSchema } from "@/lib/spec";
 
@@ -19,6 +19,8 @@ export default async function EvalsPage() {
     runs: Array<{ id: string; created_at: string; status: string }>;
   }>;
 
+  const models = (await listPlatformModels(supabase)).map((model) => model.id);
+
   // ponytail: one extra query per eval for its latest score; add a run_summaries view when the list gets long.
   const evals = await Promise.all(
     rows.map(async (row) => {
@@ -32,7 +34,7 @@ export default async function EvalsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Workspace" title="Evals" description="Saved variation specs. Each eval versions its prompt, factors, and graders." actions={<NewEvalButton />} />
+      <PageHeader eyebrow="Workspace" title="Evals" description="Saved variation specs. Each eval versions its prompt, factors, and graders." actions={<NewEvalButton models={models} />} />
       {evals.length === 0 ? (
         <Empty title="No evals yet">An eval fans one prompt out across models, variables, parameter sweeps and dataset cases, then grades every cell.</Empty>
       ) : (

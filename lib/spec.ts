@@ -48,7 +48,7 @@ export type FactorKind = Factor["kind"];
 export const evalSpecSchema = z.object({
   systemPrompt: text(20000).default(""),
   userTemplate: text(20000).default(""),
-  model: z.string().max(120).default("openai/gpt-4o-mini"),
+  model: z.string().max(120).default("openai/gpt-4.1-nano"),
   params: paramsSchema.default(paramsSchema.parse({})),
   fixed: z.record(z.string().max(80), text(4000)).default({}),
   factors: z.array(factorSchema).max(12).default([]),

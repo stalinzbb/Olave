@@ -32,5 +32,9 @@ export async function requireUser(): Promise<Authed> {
   const supabase = await getSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new HttpError(401, "Sign in required.");
+  // A clear message for a signed-in non-member. This is UX only: the real control is RLS
+  // (supabase/migrations/0003_hardening.sql), which returns them nothing either way.
+  const member = await supabase.rpc("is_member");
+  if (!member.error && member.data === false) throw new HttpError(403, "Your account is not a member of this workspace.");
   return { supabase, user: data.user };
 }

@@ -13,7 +13,6 @@ export const POST = route(async ({ supabase }, request) => {
     await supabase.from("graders").insert({ name: input.name, description: input.description, engine: input.config.engine }).select("id").single(),
     "Grader",
   ) as { id: string };
-  const version = await supabase.from("grader_versions").insert({ grader_id: created.id, version: 1, config: input.config });
-  if (version.error) throw new Error(version.error.message);
-  return NextResponse.json({ id: created.id }, { status: 201 });
+  const version = must(await supabase.from("grader_versions").insert({ grader_id: created.id, version: 1, config: input.config }).select("id").single(), "Version") as { id: string };
+  return NextResponse.json({ id: created.id, versionId: version.id }, { status: 201 });
 });

@@ -105,3 +105,14 @@ export async function listDatasets(supabase: SupabaseClient) {
 export async function listRuns(supabase: SupabaseClient, evalId: string): Promise<RunRow[]> {
   return must(await supabase.from("runs").select("*").eq("eval_id", evalId).order("created_at", { ascending: false }).limit(50), "Runs") as RunRow[];
 }
+
+export interface PlatformModel {
+  id: string;
+  is_default: boolean;
+}
+
+/** The allowlist of models this workspace may call. Default first. */
+export async function listPlatformModels(supabase: SupabaseClient): Promise<PlatformModel[]> {
+  const rows = must(await supabase.from("models").select("id, is_default").order("created_at"), "Models") as PlatformModel[];
+  return [...rows].sort((a, b) => Number(b.is_default) - Number(a.is_default));
+}
