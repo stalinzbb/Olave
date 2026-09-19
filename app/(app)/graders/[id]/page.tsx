@@ -3,8 +3,7 @@ import Link from "next/link";
 import { ActionButton } from "@/components/actions";
 import { GraderEditor } from "@/components/grader-editor";
 import { Chip, PageHeader } from "@/components/kit";
-import { must } from "@/lib/server/data";
-import { listModels } from "@/lib/server/openrouter";
+import { listPlatformModels, must } from "@/lib/server/data";
 import { requireUser } from "@/lib/server/supabase";
 import { evalSpecSchema, graderConfigSchema } from "@/lib/spec";
 
@@ -34,7 +33,7 @@ export default async function GraderPage({ params }: { params: Promise<{ id: str
         description={<span className="flex items-center gap-2"><Chip tone="gray">{grader.engine}</Chip>{versions.length} version{versions.length === 1 ? "" : "s"}</span>}
         actions={<ActionButton path={`/api/graders/${id}`} method="DELETE" label="Delete" confirmText={`Delete "${grader.name}"? Grades it produced are deleted too.`} className="btn btn-ghost" then="/graders" />}
       />
-      <GraderEditor key={versions[0].id} graderId={id} initial={{ name: grader.name, description: grader.description, config }} models={config.engine === "judge" ? (await listModels()).map((m) => m.id) : []} />
+      <GraderEditor key={versions[0].id} graderId={id} initial={{ name: grader.name, description: grader.description, config }} models={config.engine === "judge" ? (await listPlatformModels(supabase)).map((m) => m.id) : []} />
       <section className="mt-8">
         <h2 className="mb-2 font-semibold">Used by</h2>
         {usedBy.length === 0 ? <p className="text-ink-2">No eval pins this grader yet. Pin it from an eval’s Graders tab in Studio.</p> : (

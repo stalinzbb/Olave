@@ -6,28 +6,31 @@ import { useState } from "react";
 import { api } from "@/lib/client-api";
 import { evalSpecSchema } from "@/lib/spec";
 
-const STARTER = evalSpecSchema.parse({
+const starter = (models: string[]) => evalSpecSchema.parse({
+  model: models[0],
   systemPrompt: "You are a support analyst. Be accurate and concise.",
   userTemplate: "Summarise this support ticket in a {{tone}} tone, in at most 40 words.\n\nTicket: {{ticket}}",
   fixed: { ticket: "I was charged twice for order #4821 on 3 May ($49.00 each). Please refund one charge." },
   factors: [
-    { id: "models", kind: "models", name: "model", values: ["openai/gpt-4o-mini", "anthropic/claude-haiku-4.5"] },
+    { id: "models", kind: "models", name: "model", values: models.slice(0, 2) },
     { id: "tone", kind: "variable", name: "tone", values: ["warm", "blunt"] },
   ],
 });
 
-export function NewEvalButton() {
+/** `models`: the platform allowlist, default first. The starter compares the first two. */
+export function NewEvalButton({ models }: { models: string[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
     <button
       type="button"
       className="btn btn-primary"
-      disabled={busy}
+      disabled={busy || models.length === 0}
+      title={models.length === 0 ? "Add a model under Library → Models first" : undefined}
       onClick={async () => {
         setBusy(true);
         try {
-          const { id } = await api<{ id: string }>("/api/evals", "POST", { name: "Untitled eval", spec: STARTER });
+          const { id } = await api<{ id: string }>("/api/evals", "POST", { name: "Untitled eval", spec: starter(models) });
           router.push(`/evals/${id}/studio`);
         } catch (error) {
           alert(error instanceof Error ? error.message : "Could not create the eval.");
@@ -43,7 +46,7 @@ export function NewEvalButton() {
 /** A button that calls one API endpoint, then refreshes (or navigates). Destructive ones confirm first. */
 export function ActionButton({ path, method = "POST", body, label, confirmText, className = "btn btn-secondary btn-sm", then }: {
   path: string;
-  method?: "POST" | "DELETE";
+  method?: "POST" | "PUT" | "DELETE";
   body?: unknown;
   label: string;
   confirmText?: string;

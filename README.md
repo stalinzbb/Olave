@@ -9,13 +9,14 @@ An eval harness for LLM output. An **eval** is a versioned spec of *prompt × fa
   - **Jev** (TypeSafe System One): each rubric criterion is one Score question whose levels are your descriptors; yes/no checks are Nouls. One request per cell. Weights, thresholds and pass/fail are composed in code; low-confidence grades are flagged for human review.
   - **LLM judge**: a reasoning model scores the same rubric shape and returns a rationale. It is never allowed to be the model under test.
   - **Code check**: declarative only (word limits, regex, contains, JSON shape, match against a `reference` column). Nothing a user types is ever executed.
+- **Models** (Library → Models) is the platform allowlist: add models from the OpenRouter catalogue, remove them, pick the default. Runs and LLM judges are refused server-side for anything not listed, which makes the list your cost ceiling. It is seeded with cheap models.
 - **Compare** lines two runs up by factor combination: score/pass/latency/cost deltas, per-factor deltas, and a list of cells that dropped ≥ 0.10. Promote a run to baseline from there.
 
 ## Setup
 
 Requires Node.js ≥ 20 and a Supabase project.
 
-1. In the Supabase SQL editor run `supabase/migrations/0001_rebuild.sql`. If this project held the old jsonb tables, run `0000_drop_legacy.sql` first (it is destructive; export anything you need).
+1. In the Supabase SQL editor run `supabase/migrations/0001_rebuild.sql`, then `0002_models.sql`. If this project held the old jsonb tables, run `0000_drop_legacy.sql` first (it is destructive; export anything you need).
 2. In Supabase **Authentication → Sign In / Providers**, turn **off** "Allow new users to sign up", then invite yourself under **Authentication → Users**. The invited-user list is the allowlist.
 3. `cp .env.example .env.local` and fill it in. Without `OPENROUTER_API_KEY` runs return mock output; without `TYPESAFE_API_KEY` Jev graders are skipped.
 4. `npm install && npm run dev`

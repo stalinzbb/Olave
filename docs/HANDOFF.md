@@ -40,7 +40,11 @@ Verified against a real Supabase project in mock mode (2026-09-18, no provider k
 
 Verified live with real keys (2026-09-18): Settings shows both providers connected; a 4-cell run through OpenRouter (gpt-4o-mini + claude-haiku-4.5) returned real outputs, token counts, latency (p50 ~1.1 s) and cost ($0.0006 total); the Jev grader scored every cell in one request each and its confidence flagging fired (2 of 4 flagged). Jev separated a genuinely bad cell (0.30: the model role-played a support reply instead of summarising) from good ones (0.85–1.00).
 
-**Still not verified:** the LLM judge, a Dataset cases factor inside a run, resume of an interrupted run, runs near the 500-cell cap or the 300 s limit, and a production deploy. The Jev thresholds (0.6 confidence flag, 0.5 Noul) are still defaults: calibrate them once there are human grades to compare against.
+Verified live on cheap models (same day, after `0002_models.sql`): Models page with live prices; add (catalogue-checked, bogus id → 422), remove, set default; `createRun` refusing an off-list model (422, surfaced in Studio pre-flight); a 6-cell run of 2 models × 3 dataset cases in 7 s for ~$0.0001; the **LLM judge** (gpt-4o-mini) scoring every cell; the `/resume` endpoint on a finished run (no-op, completes). Bug found and fixed: "make default" on a missing id cleared the existing default first.
+
+**What the live Jev data taught us (keep this in mind when writing rubrics):** a confidence of exactly 0 is real, not a bug. It appears when Jev's level distribution is bimodal (e.g. 0.31 at level 0 and 0.55 at level 3). The probability-weighted `score` then lands on a middle level neither mode supports, so **treat low-confidence scores as "unknown", not as a mid score** — which is what `flagged` is for. The cause was a rubric mixing two dimensions (invention and omission) on one scale; the defaults in `lib/grader-defaults.ts` now split them (Score for omission, Noul for invention). Whether that actually raises confidence has not been re-measured.
+
+**Still not verified:** resume of a genuinely interrupted run (pending cells), runs near the 500-cell cap or the 300 s limit, the new default rubrics on live data, and a production deploy. The Jev thresholds (0.6 confidence flag, 0.5 Noul) are still defaults: calibrate them once there are human grades to compare against.
 
 ## 3. Map of the code
 
@@ -76,9 +80,11 @@ app/login/page.tsx           Client form → POST /api/auth/login
 app/(app)/layout.tsx         requireUser or redirect; side rail
 app/(app)/evals/…            list · [id] (Runs + Compare tabs) · [id]/studio · [id]/runs/[runId]
 app/(app)/graders/…          list · new?engine= · [id]
+app/(app)/models             Platform model allowlist: add from the OpenRouter catalogue, remove, set default
 app/(app)/datasets, settings
 app/api/…                    auth/login (only unauthenticated handler), auth/logout, evals, evals/[id], evals/[id]/runs,
-                             evals/[id]/baseline, runs/[id], runs/[id]/resume, graders, graders/[id], graders/test, datasets, datasets/[id]
+                             evals/[id]/baseline, runs/[id], runs/[id]/resume, graders, graders/[id], graders/test, datasets, datasets/[id],
+                             models (POST add / PUT set default / DELETE remove; id in the body because ids contain "/")
 
 components/kit.tsx           Chip, PageHeader, Stat, Empty, Banner, Bar, FACTOR_TONE (server-safe, no hooks)
 components/studio.tsx        The single eval editor + run driver (client)
@@ -89,12 +95,15 @@ components/actions.tsx       NewEvalButton, ActionButton, RunPicker (client)
 components/nav.tsx, dataset-upload.tsx
 
 supabase/migrations/0001_rebuild.sql     New schema + RLS
+supabase/migrations/0002_models.sql      Platform model allowlist + cheap seed models
 supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Never run automatically.
 ```
 
 ### Data model (`0001_rebuild.sql`)
 
 `evals` (name, goal, baseline_run_id) → `eval_versions` (version, spec jsonb — immutable; a save with a changed spec inserts a new row) · `datasets` → `dataset_rows` (idx, data jsonb, tags[]) · `graders` (engine) → `grader_versions` (version, config jsonb — immutable) · `runs` (eval_id, eval_version_id, status, trigger, total_cells) → `cells` (idx, labels, model, prompts, vars, params, status pending|done|error, output, error, tokens, latency, cost) → `grades` (grader_version_id, score 0–1, pass, confidence, flagged, raw jsonb).
+
+`models` (id = OpenRouter model id, is_default; one default enforced by a partial unique index) is the **platform allowlist**: `createRun` refuses any cell model or judge model not in it (422). The Studio/grader pickers only offer these, but the server check is the real control — it is also the cost ceiling.
 
 All scores are normalised to **0–1**. RLS: enabled on all nine tables, single policy `for all to authenticated using (true)` — one shared workspace. `created_by` is recorded for when team scoping arrives.
 
@@ -112,7 +121,8 @@ All scores are normalised to **0–1**. RLS: enabled on all nine tables, single 
 2. No code path may accept a provider key from a request, store one in the DB, log one, or return one. Settings shows booleans.
 3. Provider/DB code lives under `lib/server/` and starts with `import "server-only"`.
 4. Every API handler is wrapped in `route()`. The only exception is `api/auth/login`. `proxy.ts` has no excluded app routes.
-5. All request bodies are parsed with a zod schema from `lib/spec.ts` (or a local one). Server-side caps: 500 cells, 2,000 dataset rows, 2 MB body.
+5. Runs may only call models in the `models` table; keep that check in `createRun` (server-side), never only in the UI.
+5a. All request bodies are parsed with a zod schema from `lib/spec.ts` (or a local one). Server-side caps: 500 cells, 2,000 dataset rows, 2 MB body.
 6. Anything from a provider or Supabase error passes through `safeMessage()`/`redact()` before being stored, logged or returned.
 7. Code graders stay declarative. No `eval`, `new Function`, or user-supplied code — ever. (Known ceiling: user regexes are length-capped but not sandboxed; see the `ponytail:` note in `graders/code.ts`.)
 8. Model output is untrusted: render as text (no `dangerouslySetInnerHTML` anywhere), and wrap it as delimited data in grader prompts.
@@ -134,7 +144,7 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 
 ## 6. First run (done once in mock mode; repeat for a new environment)
 
-1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`.
+1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`, then `0002_models.sql`.
 2. Supabase → Authentication: disable "Allow new users to sign up"; invite a user; set a password.
 3. `cp .env.example .env.local`; fill in the two `NEXT_PUBLIC_SUPABASE_*` values. Leave provider keys blank to start in mock mode. **Agents: never ask for, read, echo or write key values. The owner fills this file in.**
 4. `npm install && npm run dev -- -p 3112` (or the `dev` config in `.claude/launch.json`).
