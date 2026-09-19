@@ -147,9 +147,11 @@ Comments starting `ponytail:` mark deliberate simplifications and name their cei
 
 ## 5. Reverting
 
-Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-rebuild`; push the tag with `git push origin pre-rebuild` if you want it on the remote). `main` now contains the rebuild (merge commit `8a22182`). To undo it on `main`: `git revert -m 1 8a22182`.
+Everything before the rebuild is at commit `1d36751`, tagged `pre-rebuild` (the tag is on GitHub).
 
-- **Abandon the rebuild:** `git switch main` (or `git switch -c old-app pre-rebuild`). Nothing else is needed; the old app has no dependency on the new tables.
+**What is on `main`:** PR #15 was merged early, at `003128f` (merge commit `8a22182`), so that merge holds only the core rebuild and the first smoke-test fix. The Models allowlist, the RLS hardening (`0002`–`0005`, `verify_rls.sql`), the rubric change and the rename arrived separately in PR #16. To undo on `main`, revert the merge commits newest first: `git revert -m 1 <PR #16 merge>` then `git revert -m 1 8a22182`.
+
+- **Get the old app back as a branch:** `git switch -c old-app pre-rebuild`. Nothing else is needed; the old app has no dependency on the new tables.
 - **Get one old file back:** `git show pre-rebuild:lib/runner.ts` · the whole old tree: `git checkout pre-rebuild -- pages lib components styles proxy.js`.
 - **Old DB schema:** `git show pre-rebuild:supabase/schema.sql`. It is idempotent. The old tables are only gone if someone ran `0000_drop_legacy.sql`; that drop is not reversible and old run data is not recoverable from git — export first.
 - **Undo just the new tables:** `drop table grades, cells, runs, grader_versions, graders, dataset_rows, datasets, eval_versions, evals cascade;`
