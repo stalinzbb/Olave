@@ -1,5 +1,7 @@
 # Handoff: eval-harness rebuild
 
+The repo was renamed `dg-llm-evals` → **`stalinzbb/Olave`** on 2026-09-19 (GitHub redirects the old URL). The rebuild merged to `main` as PR #15 the same day. The Vercel project, its `dg-llm-evals.vercel.app` domain and the local folder name were not renamed.
+
 Written 2026-09-18 for whoever (human or agent) picks this up next. Read this before changing anything. `README.md` is the user-facing summary; this file is the working record.
 
 > The other two files in `docs/` (`modernization-roadmap.md`, `old-ui-rebuild-baseline.md`) describe the **pre-rebuild** app and are stale. They are kept for history only.
@@ -121,7 +123,7 @@ Comments starting `ponytail:` mark deliberate simplifications and name their cei
 
 ## 5. Reverting
 
-Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-rebuild`; push the tag with `git push origin pre-rebuild` if you want it on the remote). `main` was not touched.
+Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-rebuild`; push the tag with `git push origin pre-rebuild` if you want it on the remote). `main` now contains the rebuild (merge commit `8a22182`). To undo it on `main`: `git revert -m 1 8a22182`.
 
 - **Abandon the rebuild:** `git switch main` (or `git switch -c old-app pre-rebuild`). Nothing else is needed; the old app has no dependency on the new tables.
 - **Get one old file back:** `git show pre-rebuild:lib/runner.ts` · the whole old tree: `git checkout pre-rebuild -- pages lib components styles proxy.js`.
@@ -138,6 +140,13 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 4. `npm install && npm run dev -- -p 3112` (or the `dev` config in `.claude/launch.json`).
 5. Smoke test: sign in → New eval (starter spec = 2 models × 2 tones = 4 cells) → Run → open a cell → create a code grader and a Jev grader → pin them in Studio → run again → change the prompt → run → Runs tab → pick two → Compare → promote baseline. Upload a CSV with `ticket,reference,tags` columns and add a Dataset cases factor.
 6. Then add keys and repeat once live.
+
+### Deploying (Vercel)
+
+- Production is `https://dg-llm-evals.vercel.app`; every PR push also gets a preview deployment, which sits behind Vercel's own login (Deployment Protection), so it cannot be probed from outside.
+- Env vars go in Vercel → Project → Settings → Environment Variables, for **Production and Preview**. `NEXT_PUBLIC_*` values are inlined **at build time**, so after adding or changing them you must **redeploy** (a restart is not enough).
+- Symptom of missing Supabase vars: the sign-in form says "Supabase is not configured." and `POST /api/auth/login` returns 503. That is the app failing closed, not a bug. This happened on the first production deploy (2026-09-19).
+- In Supabase → Authentication → URL Configuration, set the Site URL to the production URL.
 
 ## 7. Backlog, in suggested order
 

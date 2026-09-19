@@ -1,4 +1,6 @@
-# dg-llm-evals — agent notes
+# Olave — agent notes
+
+(Repo: `stalinzbb/Olave`, renamed from `dg-llm-evals` on 2026-09-19. The Vercel project and its `dg-llm-evals.vercel.app` domain keep the old name.)
 
 LLM eval harness: Next.js 16 App Router, TypeScript strict, Tailwind 4, Supabase (Auth + RLS), OpenRouter, TypeSafe/Jev.
 

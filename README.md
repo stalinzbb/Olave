@@ -1,4 +1,4 @@
-# LLM Evals
+# Olave
 
 An eval harness for LLM output. An **eval** is a versioned spec of *prompt × factors × graders*. A **run** fans the prompt out into **cells** (one per factor combination), every cell is scored by the pinned **graders**, and runs are compared against a promoted **baseline** to catch regressions.
 
