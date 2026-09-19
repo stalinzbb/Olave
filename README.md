@@ -4,6 +4,7 @@ An eval harness for LLM output. An **eval** is a versioned spec of *prompt × fa
 
 ## Concepts
 
+- **Playground** is for single runs: one prompt on up to four models side by side, nothing stored or graded. "Save as eval" carries it into Studio when it is worth measuring.
 - **Factors** multiply the run: models, variable values, parameter sweeps, system-prompt variants, dataset cases. `2 models × 2 tones × 5 cases = 20 cells`. Runs are capped at 500 cells.
 - **Graders** are versioned and immutable; evals pin a version, so tightening a rubric never silently rescores history.
   - **Jev** (TypeSafe System One): each rubric criterion is one Score question whose levels are your descriptors; yes/no checks are Nouls. One request per cell. Weights, thresholds and pass/fail are composed in code; low-confidence grades are flagged for human review.

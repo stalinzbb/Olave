@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAxes, cellAt, countCells, specIssues } from "@/lib/factors";
 import { HttpError } from "@/lib/http-error";
 import type { CellRow } from "@/lib/results";
-import { getEval, getGraderVersions, getVersionSpec, listPlatformModels, loadCaseRows, must, type GraderVersionRecord } from "@/lib/server/data";
+import { assertModelsAllowed, getEval, getGraderVersions, getVersionSpec, loadCaseRows, must, type GraderVersionRecord } from "@/lib/server/data";
 import { grade } from "@/lib/server/graders";
 import { safeMessage } from "@/lib/server/http";
 import { complete } from "@/lib/server/openrouter";
@@ -28,10 +28,8 @@ export async function createRun(supabase: SupabaseClient, evalId: string, trigge
   const resolved = Array.from({ length: total }, (_, idx) => cellAt(record.spec, axes, idx));
 
   // The platform allowlist is enforced here, server-side: the pickers in the UI are only a convenience.
-  const allowed = new Set((await listPlatformModels(supabase)).map((model) => model.id));
   const judges = (await getGraderVersions(supabase, record.spec.graders)).flatMap((g) => (g.config.engine === "judge" ? [g.config.model] : []));
-  const blocked = [...new Set([...resolved.map((cell) => cell.model), ...judges])].filter((model) => !allowed.has(model));
-  if (blocked.length) throw new HttpError(422, `Not on the platform's model list: ${blocked.join(", ")}. Add it under Library → Models or pick another.`);
+  await assertModelsAllowed(supabase, [...resolved.map((cell) => cell.model), ...judges]);
 
   const run = must(
     await supabase.from("runs").insert({ eval_id: evalId, eval_version_id: record.versionId, total_cells: total, trigger }).select("id").single(),
