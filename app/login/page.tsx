@@ -29,7 +29,8 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-full place-items-center p-4">
-      <form onSubmit={submit} className="card flex w-full max-w-sm flex-col gap-4 p-6 shadow-low">
+      {/* method="post": without it, a page whose JavaScript failed to load would submit as GET and put the password in the URL. */}
+      <form onSubmit={submit} method="post" action="/api/auth/login" className="card flex w-full max-w-sm flex-col gap-4 p-6 shadow-low">
         <div>
           <p className="text-xs font-medium text-accent">LLM Evals</p>
           <h1 className="text-2xl font-semibold">Sign in</h1>

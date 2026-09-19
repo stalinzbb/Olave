@@ -1,5 +1,7 @@
 # Handoff: eval-harness rebuild
 
+The repo was renamed `dg-llm-evals` → **`stalinzbb/Olave`** on 2026-09-19 (GitHub redirects the old URL). The rebuild merged to `main` as PR #15 the same day. The Vercel project, its `dg-llm-evals.vercel.app` domain and the local folder name were not renamed.
+
 Written 2026-09-18 for whoever (human or agent) picks this up next. Read this before changing anything. `README.md` is the user-facing summary; this file is the working record.
 
 > The other two files in `docs/` (`modernization-roadmap.md`, `old-ui-rebuild-baseline.md`) describe the **pre-rebuild** app and are stale. They are kept for history only.
@@ -38,7 +40,15 @@ Verified:
 
 Verified against a real Supabase project in mock mode (2026-09-18, no provider keys set): sign-in, RLS as an authenticated user, evals list (including the `runs!runs_eval_id_fkey` embed), create eval, run with streaming (4 cells persisted), create code + Jev graders, "test on 5 cells", pin graders → spec v2 → graded run, Runs tab, Compare, promote to baseline, dataset upload with `reference`/`tags` columns. One bug found and fixed on the way: grader defaults were exported from a `"use client"` module and read by a server page (now `lib/grader-defaults.ts`).
 
-**Still not verified:** live OpenRouter completions, live Jev grading, the LLM judge, a Dataset cases factor inside a run, resume of an interrupted run, runs near the 500-cell cap or the 300 s limit, and a production deploy.
+Verified live with real keys (2026-09-18): Settings shows both providers connected; a 4-cell run through OpenRouter (gpt-4o-mini + claude-haiku-4.5) returned real outputs, token counts, latency (p50 ~1.1 s) and cost ($0.0006 total); the Jev grader scored every cell in one request each and its confidence flagging fired (2 of 4 flagged). Jev separated a genuinely bad cell (0.30: the model role-played a support reply instead of summarising) from good ones (0.85–1.00).
+
+Verified live on cheap models (same day, after `0002_models.sql`): Models page with live prices; add (catalogue-checked, bogus id → 422), remove, set default; `createRun` refusing an off-list model (422, surfaced in Studio pre-flight); a 6-cell run of 2 models × 3 dataset cases in 7 s for ~$0.0001; the **LLM judge** (gpt-4o-mini) scoring every cell; the `/resume` endpoint on a finished run (no-op, completes). Bug found and fixed: "make default" on a missing id cleared the existing default first.
+
+**What the live Jev data taught us (keep this in mind when writing rubrics):** a confidence of exactly 0 is real, not a bug. It appears when Jev's level distribution is bimodal (e.g. 0.31 at level 0 and 0.55 at level 3). The probability-weighted `score` then lands on a middle level neither mode supports, so **treat low-confidence scores as "unknown", not as a mid score** — which is what `flagged` is for. The cause was a rubric mixing two dimensions (invention and omission) on one scale; the defaults in `lib/grader-defaults.ts` now split them (Score for omission, Noul for invention). Whether that actually raises confidence has not been re-measured.
+
+Verified on the owner's project after `0003` + `0005` (2026-09-18): `verify_rls.sql` passed for every app table and caught three RLS-off leftovers from the old app, now dropped; under the hardened policies the app still creates an eval, appends a version (v2), runs end to end (cells + grades written), and deleting the eval cascades to its versions, run and cells.
+
+**Still not verified:** resume of a genuinely interrupted run (pending cells), runs near the 500-cell cap or the 300 s limit, the new default rubrics on live data, and a production deploy. The Jev thresholds (0.6 confidence flag, 0.5 Noul) are still defaults: calibrate them once there are human grades to compare against.
 
 ## 3. Map of the code
 
@@ -74,9 +84,11 @@ app/login/page.tsx           Client form → POST /api/auth/login
 app/(app)/layout.tsx         requireUser or redirect; side rail
 app/(app)/evals/…            list · [id] (Runs + Compare tabs) · [id]/studio · [id]/runs/[runId]
 app/(app)/graders/…          list · new?engine= · [id]
+app/(app)/models             Platform model allowlist: add from the OpenRouter catalogue, remove, set default
 app/(app)/datasets, settings
 app/api/…                    auth/login (only unauthenticated handler), auth/logout, evals, evals/[id], evals/[id]/runs,
-                             evals/[id]/baseline, runs/[id], runs/[id]/resume, graders, graders/[id], graders/test, datasets, datasets/[id]
+                             evals/[id]/baseline, runs/[id], runs/[id]/resume, graders, graders/[id], graders/test, datasets, datasets/[id],
+                             models (POST add / PUT set default / DELETE remove; id in the body because ids contain "/")
 
 components/kit.tsx           Chip, PageHeader, Stat, Empty, Banner, Bar, FACTOR_TONE (server-safe, no hooks)
 components/studio.tsx        The single eval editor + run driver (client)
@@ -87,14 +99,25 @@ components/actions.tsx       NewEvalButton, ActionButton, RunPicker (client)
 components/nav.tsx, dataset-upload.tsx
 
 supabase/migrations/0001_rebuild.sql     New schema + RLS
-supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Never run automatically.
+supabase/migrations/0002_models.sql      Platform model allowlist + cheap seed models
+supabase/migrations/0003_hardening.sql   `members` table + is_member(); all policies require membership; version tables append-only
+supabase/migrations/0004_lock_unprotected_tables.sql  Non-destructive: enables RLS on any public table without it (found 3 open leftovers from the old app)
+supabase/verify_rls.sql                  Self-check: creates one helper function, calls it, drops it; its probes roll themselves back. Every row should say ok.
+                                         (No temp tables / BEGIN: the Supabase SQL editor does not keep a script on one connection.)
+supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE, for a pre-rebuild project only. Guarded: refuses to run once `eval_versions` exists,
+                                         because the old names `runs`/`evals`/`datasets` are reused by the new schema.
+supabase/migrations/0005_drop_old_leftovers.sql  DESTRUCTIVE but safe on the new schema: drops only old-app tables whose names the new schema does not use
 ```
 
 ### Data model (`0001_rebuild.sql`)
 
 `evals` (name, goal, baseline_run_id) → `eval_versions` (version, spec jsonb — immutable; a save with a changed spec inserts a new row) · `datasets` → `dataset_rows` (idx, data jsonb, tags[]) · `graders` (engine) → `grader_versions` (version, config jsonb — immutable) · `runs` (eval_id, eval_version_id, status, trigger, total_cells) → `cells` (idx, labels, model, prompts, vars, params, status pending|done|error, output, error, tokens, latency, cost) → `grades` (grader_version_id, score 0–1, pass, confidence, flagged, raw jsonb).
 
-All scores are normalised to **0–1**. RLS: enabled on all nine tables, single policy `for all to authenticated using (true)` — one shared workspace. `created_by` is recorded for when team scoping arrives.
+`models` (id = OpenRouter model id, is_default; one default enforced by a partial unique index) is the **platform allowlist**: `createRun` refuses any cell model or judge model not in it (422). The Studio/grader pickers only offer these, but the server check is the real control — it is also the cost ceiling.
+
+All scores are normalised to **0–1**.
+
+**RLS (after `0003_hardening.sql`)**: enabled on every table. `anon` has no policies. `authenticated` must also pass `is_member()` (a `security definer` function checking `members.user_id = auth.uid()`), so a signed-in non-member sees and changes nothing even if signups are re-enabled by mistake. `members` has no write policy: it is managed only from the SQL editor (snippets are in the migration header). `eval_versions` and `grader_versions` have select + insert policies only (append-only); deleting an eval/grader still cascades because cascades run as the table owner. Still one shared workspace among members; `created_by` is recorded for when team scoping arrives. The migrations and `verify_rls.sql` were dry-run on a local Postgres 15 with a stubbed `auth` schema: 21/21 checks ok.
 
 ### How a run works
 
@@ -109,8 +132,11 @@ All scores are normalised to **0–1**. RLS: enabled on all nine tables, single 
 1. Secrets are read in `lib/server/env.ts` and nowhere else. Never add `NEXT_PUBLIC_` to a secret. Never add a service-role key.
 2. No code path may accept a provider key from a request, store one in the DB, log one, or return one. Settings shows booleans.
 3. Provider/DB code lives under `lib/server/` and starts with `import "server-only"`.
+3a. **No table in `public` may have RLS off** — the anon key is public, so RLS-off means world-readable and writable. The first `verify_rls.sql` run on the owner's project found three such leftovers from the pre-rebuild app (`prompt_templates`, `source_pool`, `test_cases`); `0004` locks them without deleting data. The owner has said the old data is not wanted: `0005_drop_old_leftovers.sql` drops them. Agents still never run destructive SQL themselves.
+3b. RLS is the access control, not the app. Every new table needs `enable row level security` plus `is_member()` policies in the same migration, written out literally. Never add a write policy on `members`. Re-run `supabase/verify_rls.sql` after any schema change.
 4. Every API handler is wrapped in `route()`. The only exception is `api/auth/login`. `proxy.ts` has no excluded app routes.
-5. All request bodies are parsed with a zod schema from `lib/spec.ts` (or a local one). Server-side caps: 500 cells, 2,000 dataset rows, 2 MB body.
+5. Runs may only call models in the `models` table; keep that check in `createRun` (server-side), never only in the UI.
+5a. All request bodies are parsed with a zod schema from `lib/spec.ts` (or a local one). Server-side caps: 500 cells, 2,000 dataset rows, 2 MB body.
 6. Anything from a provider or Supabase error passes through `safeMessage()`/`redact()` before being stored, logged or returned.
 7. Code graders stay declarative. No `eval`, `new Function`, or user-supplied code — ever. (Known ceiling: user regexes are length-capped but not sandboxed; see the `ponytail:` note in `graders/code.ts`.)
 8. Model output is untrusted: render as text (no `dangerouslySetInnerHTML` anywhere), and wrap it as delimited data in grader prompts.
@@ -121,9 +147,11 @@ Comments starting `ponytail:` mark deliberate simplifications and name their cei
 
 ## 5. Reverting
 
-Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-rebuild`; push the tag with `git push origin pre-rebuild` if you want it on the remote). `main` was not touched.
+Everything before the rebuild is at commit `1d36751`, tagged `pre-rebuild` (the tag is on GitHub).
 
-- **Abandon the rebuild:** `git switch main` (or `git switch -c old-app pre-rebuild`). Nothing else is needed; the old app has no dependency on the new tables.
+**What is on `main`:** PR #15 was merged early, at `003128f` (merge commit `8a22182`), so that merge holds only the core rebuild and the first smoke-test fix. The Models allowlist, the RLS hardening (`0002`–`0005`, `verify_rls.sql`), the rubric change and the rename arrived separately in PR #16. To undo on `main`, revert the merge commits newest first: `git revert -m 1 <PR #16 merge>` then `git revert -m 1 8a22182`.
+
+- **Get the old app back as a branch:** `git switch -c old-app pre-rebuild`. Nothing else is needed; the old app has no dependency on the new tables.
 - **Get one old file back:** `git show pre-rebuild:lib/runner.ts` · the whole old tree: `git checkout pre-rebuild -- pages lib components styles proxy.js`.
 - **Old DB schema:** `git show pre-rebuild:supabase/schema.sql`. It is idempotent. The old tables are only gone if someone ran `0000_drop_legacy.sql`; that drop is not reversible and old run data is not recoverable from git — export first.
 - **Undo just the new tables:** `drop table grades, cells, runs, grader_versions, graders, dataset_rows, datasets, eval_versions, evals cascade;`
@@ -132,12 +160,19 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 
 ## 6. First run (done once in mock mode; repeat for a new environment)
 
-1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`.
+1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`, `0002_models.sql`, `0003_hardening.sql` (check the member list it prints), `0004_lock_unprotected_tables.sql`, then `verify_rls.sql` (every row should say ok).
 2. Supabase → Authentication: disable "Allow new users to sign up"; invite a user; set a password.
 3. `cp .env.example .env.local`; fill in the two `NEXT_PUBLIC_SUPABASE_*` values. Leave provider keys blank to start in mock mode. **Agents: never ask for, read, echo or write key values. The owner fills this file in.**
 4. `npm install && npm run dev -- -p 3112` (or the `dev` config in `.claude/launch.json`).
 5. Smoke test: sign in → New eval (starter spec = 2 models × 2 tones = 4 cells) → Run → open a cell → create a code grader and a Jev grader → pin them in Studio → run again → change the prompt → run → Runs tab → pick two → Compare → promote baseline. Upload a CSV with `ticket,reference,tags` columns and add a Dataset cases factor.
 6. Then add keys and repeat once live.
+
+### Deploying (Vercel)
+
+- Production is `https://dg-llm-evals.vercel.app`; every PR push also gets a preview deployment, which sits behind Vercel's own login (Deployment Protection), so it cannot be probed from outside.
+- Env vars go in Vercel → Project → Settings → Environment Variables, for **Production and Preview**. `NEXT_PUBLIC_*` values are inlined **at build time**, so after adding or changing them you must **redeploy** (a restart is not enough).
+- Symptom of missing Supabase vars: the sign-in form says "Supabase is not configured." and `POST /api/auth/login` returns 503. That is the app failing closed, not a bug. This happened on the first production deploy (2026-09-19).
+- In Supabase → Authentication → URL Configuration, set the Site URL to the production URL.
 
 ## 7. Backlog, in suggested order
 
@@ -148,5 +183,5 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 5. Statistical honesty: repeated samples per cell, confidence intervals on run deltas before calling something a regression.
 6. Scheduled and CI-triggered runs (`runs.trigger` already exists), pass/fail exit for CI.
 7. Prompt library; the 5-step create wizard (Studio currently covers the same fields); ⌘K palette.
-8. Deferred logistics: teams, roles, budgets, project switcher → replace the single RLS policy with per-team policies.
+8. Deferred logistics: teams, roles, budgets, project switcher → add `team_id` and swap `is_member()` for a per-team check; a Members page would need a deliberate, admin-only write path to `members` (today there is none, on purpose).
 9. Small debts: evals list does one extra query per eval for its score (wants a summary view); Studio receives every dataset row; user regexes are unsandboxed.
