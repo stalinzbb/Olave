@@ -12,10 +12,13 @@ declare
   n int;
   inserted boolean;
 begin
-  -- A) every table in public has RLS on and at least one policy
+  -- A) no table in public may have RLS off. RLS on with zero policies is fine: it means "locked to the
+  --    app's roles", which is right for leftover tables the app does not use.
   return query
-    select 'rls on + policy: ' || c.relname::text,
-           case when c.relrowsecurity and count(p.polname) > 0 then 'ok' else 'FAIL' end
+    select 'rls: ' || c.relname::text,
+           case when not c.relrowsecurity then 'FAIL: RLS is OFF, anyone with the anon key can read/write this table. Run 0004_lock_unprotected_tables.sql'
+                when count(p.polname) = 0 then 'ok (locked: RLS on, no policies)'
+                else 'ok' end
     from pg_class c left join pg_policy p on p.polrelid = c.oid
     where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
     group by c.relname, c.relrowsecurity;
