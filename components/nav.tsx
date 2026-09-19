@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const GROUPS = [
-  { title: "Workspace", items: [{ href: "/playground", label: "Playground" }, { href: "/evals", label: "Evals" }] },
-  { title: "Library", items: [{ href: "/datasets", label: "Datasets" }, { href: "/graders", label: "Graders" }, { href: "/models", label: "Models" }] },
-  { title: "Project", items: [{ href: "/settings", label: "Settings" }] },
+  { title: "Workspace", items: [{ href: "/playground", label: "Playground", icon: "▷" }, { href: "/evals", label: "Evals", icon: "≡" }] },
+  { title: "Library", items: [{ href: "/datasets", label: "Datasets", icon: "⌸" }, { href: "/graders", label: "Graders", icon: "✓" }, { href: "/models", label: "Models", icon: "⌬" }] },
+  { title: "Project", items: [{ href: "/settings", label: "Settings", icon: "⚙" }] },
 ];
 
 export function Nav({ email }: { email: string }) {
@@ -35,8 +35,9 @@ export function Nav({ email }: { email: string }) {
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
-                      className={`flex h-8 items-center rounded-el px-2 hover:bg-tint ${active ? "bg-line font-medium" : ""}`}
+                      className={`flex h-8 items-center gap-2 rounded-el px-2 hover:bg-tint ${active ? "bg-line font-medium" : ""}`}
                     >
+                      <span aria-hidden className={`w-4 text-center ${active ? "" : "text-ink-2"}`}>{item.icon}</span>
                       {item.label}
                     </Link>
                   </li>

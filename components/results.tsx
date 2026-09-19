@@ -45,14 +45,13 @@ export function Results({ cells, graders }: { cells: CellRow[]; graders: GraderN
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Results view" className="inline-flex gap-0.5 rounded-el bg-line p-0.5">
+        <div role="tablist" aria-label="Results view" className="seg">
           {(["grid", "table"] as const).map((v) => (
             <button
               key={v}
               role="tab"
               aria-selected={view === v}
               onClick={() => setView(v)}
-              className={`h-7 rounded-[8px] px-3 text-sm font-medium capitalize ${view === v ? "bg-surface font-semibold text-ink shadow-low" : "text-ink-2"}`}
             >
               {v}
             </button>
@@ -62,14 +61,14 @@ export function Results({ cells, graders }: { cells: CellRow[]; graders: GraderN
           <>
             <label className="flex items-center gap-1.5 text-xs text-ink-2">
               Rows
-              <select className="field !w-auto !py-1" value={rows} onChange={(e) => setRowAxis(e.target.value)}>
+              <select className="field !w-auto" value={rows} onChange={(e) => setRowAxis(e.target.value)}>
                 {factors.map((f) => <option key={f}>{f}</option>)}
               </select>
             </label>
             {factors.length > 1 ? (
               <label className="flex items-center gap-1.5 text-xs text-ink-2">
                 Columns
-                <select className="field !w-auto !py-1" value={cols} onChange={(e) => setColAxis(e.target.value)}>
+                <select className="field !w-auto" value={cols} onChange={(e) => setColAxis(e.target.value)}>
                   {factors.filter((f) => f !== rows).map((f) => <option key={f}>{f}</option>)}
                 </select>
               </label>
@@ -171,7 +170,9 @@ function CellDrawer({ cell, siblings, graders, onSelect, onClose }: { cell: Cell
   }, [cell.id, siblings, onSelect, onClose]);
 
   return (
-    <aside role="dialog" aria-label={`Cell ${cell.idx + 1}`} className="fixed inset-y-0 right-0 z-20 flex w-full max-w-xl flex-col border-l border-line bg-surface shadow-low">
+    <>
+    <div aria-hidden className="scrim" onClick={onClose} />
+    <aside role="dialog" aria-modal="true" aria-label={`Cell ${cell.idx + 1}`} className="fixed inset-y-0 right-0 z-20 drawer flex w-full max-w-xl flex-col border-l border-line bg-surface shadow-low">
       <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="font-mono text-xs text-ink-2">cell {cell.idx + 1} / {siblings.length}</span>
@@ -217,10 +218,11 @@ function CellDrawer({ cell, siblings, graders, onSelect, onClose }: { cell: Cell
         </section>
         <details>
           <summary className="cursor-pointer text-xs font-semibold text-ink-2">Resolved prompt</summary>
-          {cell.system_prompt ? <pre className="mt-2 rounded-el border border-line bg-[#fafafa] p-3 font-mono text-xs whitespace-pre-wrap">{cell.system_prompt}</pre> : null}
-          <pre className="mt-2 rounded-el border border-line bg-[#fafafa] p-3 font-mono text-xs whitespace-pre-wrap">{cell.user_prompt}</pre>
+          {cell.system_prompt ? <pre className="code mt-2">{cell.system_prompt}</pre> : null}
+          <pre className="code mt-2">{cell.user_prompt}</pre>
         </details>
       </div>
     </aside>
+    </>
   );
 }
