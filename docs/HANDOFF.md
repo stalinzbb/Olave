@@ -96,6 +96,8 @@ components/nav.tsx, dataset-upload.tsx
 
 supabase/migrations/0001_rebuild.sql     New schema + RLS
 supabase/migrations/0002_models.sql      Platform model allowlist + cheap seed models
+supabase/migrations/0003_hardening.sql   `members` table + is_member(); all policies require membership; version tables append-only
+supabase/verify_rls.sql                  Read-only self-check (runs in a rolled-back transaction); every row should say ok
 supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Never run automatically.
 ```
 
@@ -105,7 +107,9 @@ supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Nev
 
 `models` (id = OpenRouter model id, is_default; one default enforced by a partial unique index) is the **platform allowlist**: `createRun` refuses any cell model or judge model not in it (422). The Studio/grader pickers only offer these, but the server check is the real control — it is also the cost ceiling.
 
-All scores are normalised to **0–1**. RLS: enabled on all nine tables, single policy `for all to authenticated using (true)` — one shared workspace. `created_by` is recorded for when team scoping arrives.
+All scores are normalised to **0–1**.
+
+**RLS (after `0003_hardening.sql`)**: enabled on every table. `anon` has no policies. `authenticated` must also pass `is_member()` (a `security definer` function checking `members.user_id = auth.uid()`), so a signed-in non-member sees and changes nothing even if signups are re-enabled by mistake. `members` has no write policy: it is managed only from the SQL editor (snippets are in the migration header). `eval_versions` and `grader_versions` have select + insert policies only (append-only); deleting an eval/grader still cascades because cascades run as the table owner. Still one shared workspace among members; `created_by` is recorded for when team scoping arrives. The migrations and `verify_rls.sql` were dry-run on a local Postgres 15 with a stubbed `auth` schema: 21/21 checks ok.
 
 ### How a run works
 
@@ -120,6 +124,7 @@ All scores are normalised to **0–1**. RLS: enabled on all nine tables, single 
 1. Secrets are read in `lib/server/env.ts` and nowhere else. Never add `NEXT_PUBLIC_` to a secret. Never add a service-role key.
 2. No code path may accept a provider key from a request, store one in the DB, log one, or return one. Settings shows booleans.
 3. Provider/DB code lives under `lib/server/` and starts with `import "server-only"`.
+3a. RLS is the access control, not the app. Every new table needs `enable row level security` plus `is_member()` policies in the same migration, written out literally. Never add a write policy on `members`. Re-run `supabase/verify_rls.sql` after any schema change.
 4. Every API handler is wrapped in `route()`. The only exception is `api/auth/login`. `proxy.ts` has no excluded app routes.
 5. Runs may only call models in the `models` table; keep that check in `createRun` (server-side), never only in the UI.
 5a. All request bodies are parsed with a zod schema from `lib/spec.ts` (or a local one). Server-side caps: 500 cells, 2,000 dataset rows, 2 MB body.
@@ -144,7 +149,7 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 
 ## 6. First run (done once in mock mode; repeat for a new environment)
 
-1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`, then `0002_models.sql`.
+1. Supabase SQL editor: (`0000_drop_legacy.sql` only if the old tables exist and are exported) then `0001_rebuild.sql`, `0002_models.sql`, `0003_hardening.sql` (check the member list it prints), then `verify_rls.sql` (every row should say ok).
 2. Supabase → Authentication: disable "Allow new users to sign up"; invite a user; set a password.
 3. `cp .env.example .env.local`; fill in the two `NEXT_PUBLIC_SUPABASE_*` values. Leave provider keys blank to start in mock mode. **Agents: never ask for, read, echo or write key values. The owner fills this file in.**
 4. `npm install && npm run dev -- -p 3112` (or the `dev` config in `.claude/launch.json`).
@@ -160,5 +165,5 @@ Everything before the rebuild is at commit `1d36751` (tagged locally as `pre-reb
 5. Statistical honesty: repeated samples per cell, confidence intervals on run deltas before calling something a regression.
 6. Scheduled and CI-triggered runs (`runs.trigger` already exists), pass/fail exit for CI.
 7. Prompt library; the 5-step create wizard (Studio currently covers the same fields); ⌘K palette.
-8. Deferred logistics: teams, roles, budgets, project switcher → replace the single RLS policy with per-team policies.
+8. Deferred logistics: teams, roles, budgets, project switcher → add `team_id` and swap `is_member()` for a per-team check; a Members page would need a deliberate, admin-only write path to `members` (today there is none, on purpose).
 9. Small debts: evals list does one extra query per eval for its score (wants a summary view); Studio receives every dataset row; user regexes are unsandboxed.
