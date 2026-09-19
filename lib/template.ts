@@ -1,4 +1,5 @@
-import type { VariableDefinition, VariableSource } from "@/lib/types/eval";
+export type VariableSource = "manual" | "random";
+type VariableDefinition = { key: string };
 
 /**
  * Template syntax:
