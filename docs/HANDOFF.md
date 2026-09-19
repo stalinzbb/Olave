@@ -97,7 +97,8 @@ components/nav.tsx, dataset-upload.tsx
 supabase/migrations/0001_rebuild.sql     New schema + RLS
 supabase/migrations/0002_models.sql      Platform model allowlist + cheap seed models
 supabase/migrations/0003_hardening.sql   `members` table + is_member(); all policies require membership; version tables append-only
-supabase/verify_rls.sql                  Read-only self-check (runs in a rolled-back transaction); every row should say ok
+supabase/verify_rls.sql                  Self-check: creates one helper function, calls it, drops it; its probes roll themselves back. Every row should say ok.
+                                         (No temp tables / BEGIN: the Supabase SQL editor does not keep a script on one connection.)
 supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Never run automatically.
 ```
 

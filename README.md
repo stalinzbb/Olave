@@ -16,7 +16,7 @@ An eval harness for LLM output. An **eval** is a versioned spec of *prompt × fa
 
 Requires Node.js ≥ 20 and a Supabase project.
 
-1. In the Supabase SQL editor run `supabase/migrations/0001_rebuild.sql`, `0002_models.sql` and `0003_hardening.sql`, then `supabase/verify_rls.sql` (read-only; every row should say ok). If this project held the old jsonb tables, run `0000_drop_legacy.sql` first (it is destructive; export anything you need).
+1. In the Supabase SQL editor run `supabase/migrations/0001_rebuild.sql`, `0002_models.sql` and `0003_hardening.sql`, then `supabase/verify_rls.sql` (leaves data untouched; every row should say ok). If this project held the old jsonb tables, run `0000_drop_legacy.sql` first (it is destructive; export anything you need).
 2. In Supabase **Authentication → Sign In / Providers**, turn **off** "Allow new users to sign up", then invite yourself under **Authentication → Users**. The invited-user list is the allowlist.
 3. `cp .env.example .env.local` and fill it in. Without `OPENROUTER_API_KEY` runs return mock output; without `TYPESAFE_API_KEY` Jev graders are skipped.
 4. `npm install && npm run dev`
