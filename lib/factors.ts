@@ -91,7 +91,10 @@ export function buildAxes(spec: EvalSpec, rowsByDataset: RowsByDataset = {}): Ax
             factor,
             values: sampleRows(factor, rowsByDataset[factor.datasetId] ?? [], spec.seed).map((row, i) => ({
               label: `case ${i + 1}`,
-              vars: row.data,
+              vars: {
+                ...row.data,
+                ...Object.fromEntries(Object.entries(factor.mapping ?? {}).map(([key, column]) => [key, row.data[column] ?? ""])),
+              },
             })),
           };
       }

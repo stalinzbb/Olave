@@ -39,6 +39,13 @@ describe("factors", () => {
     expect(a.every((t) => t === "t1" || t === "t3")).toBe(true);
   });
 
+  it("maps a variable to a differently named dataset column", () => {
+    const mapped = { ...spec, fixed: { audience: "execs", tone: "warm" }, userTemplate: "About {{body}}", factors: [{ ...spec.factors[2], mapping: { body: "ticket" } }] };
+    const mappedAxes = buildAxes(mapped, rows);
+    expect(cellAt(mapped, mappedAxes, 1).userPrompt).toBe("About t2");
+    expect(specIssues(mapped, mappedAxes)).toEqual([]);
+  });
+
   it("blocks unbound variables and oversize runs", () => {
     expect(specIssues(spec, axes)).toEqual([]);
     const unbound = { ...spec, fixed: {} };

@@ -40,6 +40,8 @@ export const factorSchema = z.discriminatedUnion("kind", [
     tag: z.string().max(60).nullable().default(null),
     sample: z.enum(["first", "random", "all"]).default("first"),
     n: z.number().int().min(1).max(MAX_CELLS).default(5),
+    /** variable key → dataset column, for when the names differ. Same-named columns bind without an entry. */
+    mapping: z.record(z.string().max(80), z.string().max(80)).default({}),
   }),
 ]);
 export type Factor = z.infer<typeof factorSchema>;

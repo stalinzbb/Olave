@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { Banner, Chip, FACTOR_TONE } from "@/components/kit";
 import { Results, type GraderName } from "@/components/results";
+import { ChipInput, InsertVariable, VariableRow } from "@/components/studio-variables";
 import { api, readLines } from "@/lib/client-api";
 import { buildAxes, cellAt, cellMath, countCells, specIssues, sweepValues, type CaseRow } from "@/lib/factors";
 import type { CellRow } from "@/lib/results";
@@ -25,9 +26,7 @@ export interface StudioProps {
   initialRunId: string | null;
 }
 
-const KIND_LABEL: Record<FactorKind, string> = { models: "Models", variable: "Variable", sweep: "Param sweep", prompt: "System prompt", cases: "Dataset cases" };
-const lines = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
-const VARIANT_SPLIT = /\n-{3,}\n/;
+const KIND_LABEL: Record<FactorKind, string> = { models: "Models", variable: "Variable values", sweep: "Parameter sweep", prompt: "System prompts", cases: "Dataset cases" };
 
 export function Studio(props: StudioProps) {
   const [name, setName] = useState(props.name);
@@ -41,6 +40,7 @@ export function Studio(props: StudioProps) {
   const [saved, setSaved] = useState(true);
   const [previewIdx, setPreviewIdx] = useState(0);
   const nextId = useRef(0);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const patch = (changes: Partial<EvalSpec>) => {
     setSpec((current) => ({ ...current, ...changes }));
@@ -134,7 +134,7 @@ export function Studio(props: StudioProps) {
       : kind === "variable" ? { ...base, kind, name: unbound ?? "variable", values: [] }
       : kind === "sweep" ? { ...base, kind, name: "temperature", param: "temperature", from: 0, to: 1, steps: 3 }
       : kind === "prompt" ? { ...base, kind, name: "system", values: [spec.systemPrompt] }
-      : { ...base, kind, name: "cases", datasetId: props.datasets[0]?.id ?? "", tag: null, sample: "first", n: 5 };
+      : { ...base, kind, name: "cases", datasetId: props.datasets[0]?.id ?? "", tag: null, sample: "first", n: 5, mapping: {} };
     patch({ factors: [...spec.factors, factor] });
     setTab("factors");
   }
@@ -162,7 +162,7 @@ export function Studio(props: StudioProps) {
           <div role="tablist" className="flex gap-1 border-b border-line px-3 pt-2">
             {(["prompt", "factors", "preview", "graders"] as const).map((t) => (
               <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`-mb-px border-b-2 px-2 pb-2 text-sm font-medium capitalize ${tab === t ? "border-accent text-ink" : "border-transparent text-ink-2"}`}>
-                {t}{t === "factors" ? ` · ${spec.factors.filter((f) => f.enabled).length}` : t === "graders" ? ` · ${spec.graders.length}` : ""}
+                {t === "factors" ? "variations" : t}{t === "factors" ? ` · ${spec.factors.filter((f) => f.enabled).length}` : t === "graders" ? ` · ${spec.graders.length}` : ""}
               </button>
             ))}
           </div>
@@ -174,43 +174,41 @@ export function Studio(props: StudioProps) {
                   <textarea className="field min-h-24 font-mono text-xs" value={spec.systemPrompt} onChange={(e) => patch({ systemPrompt: e.target.value })} />
                   {spec.factors.some((f) => f.kind === "prompt" && f.enabled) ? <span className="hint">Overridden by the system-prompt factor.</span> : null}
                 </label>
-                <label className="flex flex-col gap-1">
-                  <span className="label">User prompt</span>
-                  <textarea className="field min-h-40 font-mono text-xs" value={spec.userTemplate} onChange={(e) => patch({ userTemplate: e.target.value })} />
-                  <span className="hint">Use {"{{variable}}"} tokens. Dataset column names bind automatically.</span>
-                </label>
+                <div className="flex flex-col gap-1">
+                  <label className="label" htmlFor="user-prompt">User prompt</label>
+                  <textarea id="user-prompt" ref={promptRef} className="field min-h-40 font-mono text-xs" value={spec.userTemplate} onChange={(e) => patch({ userTemplate: e.target.value })} />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="hint">Anything in {"{{double braces}}"} is a variable.</span>
+                    <InsertVariable
+                      onInsert={(name) => {
+                        const box = promptRef.current;
+                        const at = box ? box.selectionStart : spec.userTemplate.length;
+                        const end = box ? box.selectionEnd : at;
+                        patch({ userTemplate: `${spec.userTemplate.slice(0, at)}{{${name}}}${spec.userTemplate.slice(end)}` });
+                        box?.focus();
+                      }}
+                    />
+                  </div>
+                </div>
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="label mb-1">Variables</legend>
-                  {variables.length === 0 ? <p className="hint">No variables in this prompt.</p> : null}
-                  {variables.map((key) => {
-                    const factor = axes.find((axis) => axis.values.some((value) => value.vars && key in value.vars));
-                    return (
-                      <div key={key} className="flex items-center gap-2">
-                        <code className="w-28 shrink-0 truncate font-mono text-xs" title={key}>{`{{${key}}}`}</code>
-                        {factor ? (
-                          <Chip tone={FACTOR_TONE[factor.factor.kind]}>from {factor.factor.name}</Chip>
-                        ) : (
-                          <input
-                            aria-label={`Fixed value for ${key}`}
-                            className="field"
-                            placeholder="fixed value, or add a factor"
-                            value={spec.fixed[key] ?? ""}
-                            onChange={(e) => {
-                              const fixed = { ...spec.fixed };
-                              if (e.target.value) fixed[key] = e.target.value;
-                              else delete fixed[key];
-                              patch({ fixed });
-                            }}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                  <legend className="label mb-1">Variables{variables.length ? ` · ${variables.length}` : ""}</legend>
+                  {variables.length === 0 ? <p className="hint">None yet. Insert one above to reuse this prompt across different inputs, tones, audiences…</p> : null}
+                  {variables.map((key) => <VariableRow key={key} name={key} spec={spec} datasets={props.datasets} patch={patch} />)}
                 </fieldset>
+                {preview ? (
+                  <details className="rounded-el border border-line p-2" open>
+                    <summary className="cursor-pointer text-xs font-semibold text-ink-2">What the model will see · run 1 of {total}</summary>
+                    <pre className="mt-2 max-h-40 overflow-y-auto font-mono text-xs whitespace-pre-wrap">{cellAt(spec, axes, 0).userPrompt}</pre>
+                  </details>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2">
                   <label className="col-span-2 flex flex-col gap-1">
                     <span className="label">Default model</span>
-                    <input className="field font-mono text-xs" list="models" value={spec.model} onChange={(e) => patch({ model: e.target.value })} />
+                    <select className="field font-mono text-xs" value={spec.model} onChange={(e) => patch({ model: e.target.value })}>
+                      {props.models.some((m) => m.id === spec.model) ? null : <option value={spec.model}>{spec.model} (not on the platform list)</option>}
+                      {props.models.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
+                    </select>
+                    {spec.factors.some((f) => f.kind === "models" && f.enabled) ? <span className="hint">Not used while a Models variation is on.</span> : null}
                   </label>
                   <label className="flex flex-col gap-1">
                     <span className="label">Temperature</span>
@@ -226,7 +224,7 @@ export function Studio(props: StudioProps) {
 
             {tab === "factors" ? (
               <>
-                {spec.factors.length === 0 ? <p className="hint">One prompt, one cell. Add a factor to fan it out: every enabled factor multiplies the run.</p> : null}
+                {spec.factors.length === 0 ? <p className="hint">One prompt, one run. Add a variation to fan it out: each one multiplies the number of runs. Variables are easiest to set up from the Prompt tab.</p> : null}
                 {spec.factors.map((factor) => {
                   const count = axes.find((axis) => axis.factor.id === factor.id)?.values.length ?? 0;
                   return (
@@ -238,12 +236,38 @@ export function Studio(props: StudioProps) {
                         <span className="font-mono text-xs text-ink-2">×{factor.enabled ? count : 1}</span>
                         <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${factor.name}`} onClick={() => patch({ factors: spec.factors.filter((f) => f.id !== factor.id) })}>✕</button>
                       </div>
-                      {factor.kind === "variable" ? <p className="hint">Name must match the {"{{variable}}"} it fills.</p> : null}
-                      {factor.kind === "models" || factor.kind === "variable" ? (
-                        <textarea aria-label="Values, one per line" className="field min-h-20 font-mono text-xs" placeholder="one value per line" defaultValue={factor.values.join("\n")} onBlur={(e) => patchFactor(factor.id, { values: lines(e.target.value) })} />
+                      {factor.kind === "variable" ? (
+                        <>
+                          <ChipInput label={`Values for ${factor.name}`} values={factor.values} onChange={(values) => patchFactor(factor.id, { values })} />
+                          {variables.includes(factor.name) ? null : <p className="hint text-warn">No {`{{${factor.name}}}`} in the prompt, so these values change nothing. Rename it or insert the variable.</p>}
+                        </>
+                      ) : null}
+                      {factor.kind === "models" ? (
+                        <div className="flex flex-col gap-1">
+                          {props.models.map((m) => (
+                            <label key={m.id} className="flex items-center gap-2 font-mono text-xs">
+                              <input type="checkbox" checked={factor.values.includes(m.id)} onChange={(e) => patchFactor(factor.id, { values: e.target.checked ? [...factor.values, m.id] : factor.values.filter((v) => v !== m.id) })} />
+                              {m.id}
+                            </label>
+                          ))}
+                          {factor.values.filter((v) => !props.models.some((m) => m.id === v)).map((v) => (
+                            <label key={v} className="flex items-center gap-2 font-mono text-xs text-bad">
+                              <input type="checkbox" checked onChange={() => patchFactor(factor.id, { values: factor.values.filter((x) => x !== v) })} />
+                              {v} <span className="font-sans">(not on the platform list: untick to remove)</span>
+                            </label>
+                          ))}
+                        </div>
                       ) : null}
                       {factor.kind === "prompt" ? (
-                        <textarea aria-label="System prompt variants" className="field min-h-28 font-mono text-xs" placeholder={"variant one\n---\nvariant two"} defaultValue={factor.values.join("\n---\n")} onBlur={(e) => patchFactor(factor.id, { values: e.target.value.split(VARIANT_SPLIT).map((v) => v.trim()).filter(Boolean) })} />
+                        <div className="flex flex-col gap-2">
+                          {factor.values.map((value, i) => (
+                            <div key={i} className="flex items-start gap-1">
+                              <textarea aria-label={`System prompt variant ${i + 1}`} className="field min-h-16 font-mono text-xs" value={value} onChange={(e) => patchFactor(factor.id, { values: factor.values.map((v, j) => (j === i ? e.target.value : v)) })} />
+                              <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove variant ${i + 1}`} onClick={() => patchFactor(factor.id, { values: factor.values.filter((_, j) => j !== i) })}>✕</button>
+                            </div>
+                          ))}
+                          <button type="button" className="btn btn-secondary btn-sm self-start" onClick={() => patchFactor(factor.id, { values: [...factor.values, ""] })}>+ Variant</button>
+                        </div>
                       ) : null}
                       {factor.kind === "sweep" ? (
                         <div className="grid grid-cols-4 gap-2">
