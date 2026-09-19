@@ -39,7 +39,11 @@ export async function proxy(request: NextRequest) {
   };
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Same three accepted names as lib/server/env.ts (which cannot be imported here).
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
   if (!url || !anonKey) return isPublic ? finish(NextResponse.next({ request: { headers } })) : deny(); // fail closed
 
   let response = NextResponse.next({ request: { headers } });
