@@ -31,6 +31,10 @@
   --radius-el: 10px;
   --radius-box: 12px;
   --shadow-low: 0 2px 4px oklch(0 0 0 / 5%), 0 4px 8px oklch(0 0 0 / 10%);
+
+  /* Motion: one curve for enter/press, one for the drawer. Built-in easings are too weak. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
@@ -46,8 +50,17 @@
     line-height: 1.4286;
     -webkit-font-smoothing: antialiased;
   }
-  button:not(:disabled) {
+  button:not(:disabled),
+  summary {
     cursor: pointer;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-accent);
+  }
+  p,
+  li {
+    text-wrap: pretty;
   }
   :focus-visible {
     outline: 2px solid var(--color-accent);
@@ -57,25 +70,57 @@
 
 @layer components {
   .btn {
-    @apply inline-flex h-8 items-center justify-center gap-2 rounded-el px-3 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-2 rounded-el px-3 text-sm font-medium whitespace-nowrap select-none disabled:cursor-not-allowed disabled:opacity-50;
+    transition: background-color 150ms ease, filter 150ms ease, scale 160ms var(--ease-out);
+  }
+  .btn:active:not(:disabled) {
+    scale: 0.96;
   }
   .btn-primary {
-    @apply bg-accent text-white hover:brightness-110;
+    @apply bg-accent text-white;
   }
   .btn-secondary {
-    @apply bg-line text-ink hover:bg-[#1c1b2126];
+    @apply bg-line text-ink;
   }
   .btn-ghost {
-    @apply text-ink-2 hover:bg-tint;
+    @apply text-ink-2;
   }
   .btn-danger {
-    @apply bg-bad-bg text-[#a50c25] hover:brightness-95;
+    @apply bg-bad-bg text-[#a50c25];
+  }
+  /* Touch devices fire hover on tap, so hover styles are for real pointers only. */
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #1c1b2126;
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background-color: var(--color-tint);
+    }
+    .btn-danger:hover:not(:disabled) {
+      filter: brightness(0.95);
+    }
   }
   .btn-sm {
     @apply h-7 px-2 text-xs;
   }
   .field {
-    @apply w-full rounded-el border border-line-strong bg-surface px-2 py-1.5 text-sm text-ink placeholder:text-ink-3 disabled:opacity-60;
+    @apply min-h-8 w-full rounded-el border border-line-strong bg-surface px-2 py-1 text-sm text-ink placeholder:text-ink-3 disabled:opacity-60;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .field:focus,
+  .field:focus-within {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+  }
+  select.field {
+    @apply appearance-none pr-7;
+    background: var(--color-surface)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23494551' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E")
+      no-repeat right 6px center;
   }
   .card {
     @apply rounded-box border border-line bg-surface;
@@ -92,6 +137,43 @@
   .td {
     @apply border-t border-line px-3 py-2 align-middle;
   }
+  /* Underline tabs (page sections, Studio composer). */
+  .tab {
+    @apply -mb-px border-b-2 border-transparent px-2 pb-2 text-sm font-medium text-ink-2 capitalize;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+  .tab[aria-selected="true"],
+  .tab[aria-current="page"] {
+    @apply border-accent text-ink;
+  }
+  /* Segmented control (view switches). Inner radius = outer 10 − padding 2. */
+  .seg {
+    @apply inline-flex gap-0.5 rounded-el bg-line p-0.5;
+  }
+  .seg > button {
+    @apply h-7 rounded-[8px] px-3 text-sm font-medium text-ink-2 capitalize;
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+  .seg > button[aria-selected="true"] {
+    @apply bg-surface font-semibold text-ink shadow-low;
+  }
+  .code {
+    @apply rounded-el border border-line bg-[#fafafa] p-3 font-mono text-xs whitespace-pre-wrap text-[#171717];
+  }
+  /* Cell drawer: opened occasionally, so it may animate. Arrow-key paging swaps content in place with no motion. */
+  .drawer {
+    transition: translate 300ms var(--ease-drawer);
+    @starting-style {
+      translate: 100% 0;
+    }
+  }
+  .scrim {
+    @apply fixed inset-0 z-10 bg-ink/20;
+    transition: opacity 200ms ease;
+    @starting-style {
+      opacity: 0;
+    }
+  }
 }
 
 @keyframes pulse-dot {
@@ -105,5 +187,12 @@
 @media (prefers-reduced-motion: reduce) {
   .pulse {
     animation: none;
+  }
+  /* Keep colour and opacity fades; drop movement. */
+  .btn:active:not(:disabled) {
+    scale: none;
+  }
+  .drawer {
+    transition: none;
   }
 }

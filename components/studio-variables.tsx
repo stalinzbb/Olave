@@ -105,7 +105,7 @@ export function VariableRow({ name, spec, datasets, patch }: { name: string; spe
     <div className="flex flex-col gap-1.5 rounded-el border border-line p-2">
       <div className="flex items-center gap-2">
         <code className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={name}>{`{{${name}}}`}</code>
-        <select aria-label={`How ${name} gets its value`} className="field !w-auto !py-1 text-xs" value={mode} onChange={(e) => setMode(e.target.value as Mode)} disabled={sameNameColumn && !mappedColumn && !valuesFactor}>
+        <select aria-label={`How ${name} gets its value`} className="field !w-auto text-xs" value={mode} onChange={(e) => setMode(e.target.value as Mode)} disabled={sameNameColumn && !mappedColumn && !valuesFactor}>
           <option value="fixed">One fixed value</option>
           <option value="values">Try several values</option>
           <option value="dataset" disabled={datasets.length === 0}>From a dataset column</option>
@@ -166,7 +166,7 @@ export function InsertVariable({ onInsert }: { onInsert: (name: string) => void 
     <span className="flex items-center gap-1">
       <input
         aria-label="New variable name"
-        className="field !w-36 !py-1 font-mono text-xs"
+        className="field !w-36 font-mono text-xs"
         placeholder="variable_name"
         value={name}
         onChange={(e) => setName(e.target.value.replace(/\s+/g, "_"))}

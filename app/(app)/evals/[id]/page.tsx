@@ -47,7 +47,7 @@ export default async function EvalPage({ params, searchParams }: { params: Promi
 
       <nav aria-label="Eval sections" className="mb-4 flex gap-1 border-b border-line">
         {(["runs", "compare"] as const).map((t) => (
-          <Link key={t} href={`/evals/${id}?tab=${t}`} aria-current={tab === t ? "page" : undefined} className={`-mb-px border-b-2 px-3 pb-2 font-medium capitalize ${tab === t ? "border-accent" : "border-transparent text-ink-2"}`}>{t}</Link>
+          <Link key={t} href={`/evals/${id}?tab=${t}`} aria-current={tab === t ? "page" : undefined} className="tab">{t}</Link>
         ))}
       </nav>
 

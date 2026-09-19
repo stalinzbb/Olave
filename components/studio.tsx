@@ -161,7 +161,7 @@ export function Studio(props: StudioProps) {
         <section aria-label="Composer" className="flex w-full shrink-0 flex-col border-r border-line bg-surface lg:w-[400px]">
           <div role="tablist" className="flex gap-1 border-b border-line px-3 pt-2">
             {(["prompt", "factors", "preview", "graders"] as const).map((t) => (
-              <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`-mb-px border-b-2 px-2 pb-2 text-sm font-medium capitalize ${tab === t ? "border-accent text-ink" : "border-transparent text-ink-2"}`}>
+              <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="tab">
                 {t === "factors" ? "variations" : t}{t === "factors" ? ` · ${spec.factors.filter((f) => f.enabled).length}` : t === "graders" ? ` · ${spec.graders.length}` : ""}
               </button>
             ))}
@@ -232,7 +232,7 @@ export function Studio(props: StudioProps) {
                       <div className="flex items-center gap-2">
                         <input type="checkbox" aria-label={`Enable ${factor.name}`} checked={factor.enabled} onChange={(e) => patchFactor(factor.id, { enabled: e.target.checked })} />
                         <Chip tone={FACTOR_TONE[factor.kind]}>{KIND_LABEL[factor.kind]}</Chip>
-                        <input aria-label="Factor name" className="field !py-1 font-mono text-xs" value={factor.name} onChange={(e) => patchFactor(factor.id, { name: e.target.value })} />
+                        <input aria-label="Factor name" className="field font-mono text-xs" value={factor.name} onChange={(e) => patchFactor(factor.id, { name: e.target.value })} />
                         <span className="font-mono text-xs text-ink-2">×{factor.enabled ? count : 1}</span>
                         <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${factor.name}`} onClick={() => patch({ factors: spec.factors.filter((f) => f.id !== factor.id) })}>✕</button>
                       </div>
@@ -318,7 +318,7 @@ export function Studio(props: StudioProps) {
                     <button type="button" className="btn btn-secondary btn-sm" disabled={previewIdx >= total - 1} onClick={() => setPreviewIdx((i) => i + 1)}>→</button>
                   </div>
                   <div className="flex flex-wrap gap-1">{Object.entries(preview.labels).map(([k, v]) => <Chip key={k}>{k}: {v}</Chip>)}</div>
-                  <pre className="rounded-el border border-line bg-[#fafafa] p-3 font-mono text-xs whitespace-pre-wrap">{`POST openrouter.ai/api/v1/chat/completions\nmodel: ${preview.model}\ntemperature: ${preview.params.temperature} · top_p: ${preview.params.top_p} · max_tokens: ${preview.params.max_tokens}\n\n[system]\n${preview.systemPrompt || "(none)"}\n\n[user]\n${preview.userPrompt}`}</pre>
+                  <pre className="code">{`POST openrouter.ai/api/v1/chat/completions\nmodel: ${preview.model}\ntemperature: ${preview.params.temperature} · top_p: ${preview.params.top_p} · max_tokens: ${preview.params.max_tokens}\n\n[system]\n${preview.systemPrompt || "(none)"}\n\n[user]\n${preview.userPrompt}`}</pre>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm self-start"
