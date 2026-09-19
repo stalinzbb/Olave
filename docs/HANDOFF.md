@@ -44,6 +44,8 @@ Verified live on cheap models (same day, after `0002_models.sql`): Models page w
 
 **What the live Jev data taught us (keep this in mind when writing rubrics):** a confidence of exactly 0 is real, not a bug. It appears when Jev's level distribution is bimodal (e.g. 0.31 at level 0 and 0.55 at level 3). The probability-weighted `score` then lands on a middle level neither mode supports, so **treat low-confidence scores as "unknown", not as a mid score** — which is what `flagged` is for. The cause was a rubric mixing two dimensions (invention and omission) on one scale; the defaults in `lib/grader-defaults.ts` now split them (Score for omission, Noul for invention). Whether that actually raises confidence has not been re-measured.
 
+Verified on the owner's project after `0003` + `0005` (2026-09-18): `verify_rls.sql` passed for every app table and caught three RLS-off leftovers from the old app, now dropped; under the hardened policies the app still creates an eval, appends a version (v2), runs end to end (cells + grades written), and deleting the eval cascades to its versions, run and cells.
+
 **Still not verified:** resume of a genuinely interrupted run (pending cells), runs near the 500-cell cap or the 300 s limit, the new default rubrics on live data, and a production deploy. The Jev thresholds (0.6 confidence flag, 0.5 Noul) are still defaults: calibrate them once there are human grades to compare against.
 
 ## 3. Map of the code
