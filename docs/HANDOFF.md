@@ -100,7 +100,9 @@ supabase/migrations/0003_hardening.sql   `members` table + is_member(); all poli
 supabase/migrations/0004_lock_unprotected_tables.sql  Non-destructive: enables RLS on any public table without it (found 3 open leftovers from the old app)
 supabase/verify_rls.sql                  Self-check: creates one helper function, calls it, drops it; its probes roll themselves back. Every row should say ok.
                                          (No temp tables / BEGIN: the Supabase SQL editor does not keep a script on one connection.)
-supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE drop of the old tables. Never run automatically.
+supabase/migrations/0000_drop_legacy.sql DESTRUCTIVE, for a pre-rebuild project only. Guarded: refuses to run once `eval_versions` exists,
+                                         because the old names `runs`/`evals`/`datasets` are reused by the new schema.
+supabase/migrations/0005_drop_old_leftovers.sql  DESTRUCTIVE but safe on the new schema: drops only old-app tables whose names the new schema does not use
 ```
 
 ### Data model (`0001_rebuild.sql`)
@@ -126,7 +128,7 @@ All scores are normalised to **0–1**.
 1. Secrets are read in `lib/server/env.ts` and nowhere else. Never add `NEXT_PUBLIC_` to a secret. Never add a service-role key.
 2. No code path may accept a provider key from a request, store one in the DB, log one, or return one. Settings shows booleans.
 3. Provider/DB code lives under `lib/server/` and starts with `import "server-only"`.
-3a. **No table in `public` may have RLS off** — the anon key is public, so RLS-off means world-readable and writable. The first `verify_rls.sql` run on the owner's project found three such leftovers from the pre-rebuild app (`prompt_templates`, `source_pool`, `test_cases`); `0004` locks them without deleting data. Whether to drop them is the owner's call (`0000_drop_legacy.sql` lists them).
+3a. **No table in `public` may have RLS off** — the anon key is public, so RLS-off means world-readable and writable. The first `verify_rls.sql` run on the owner's project found three such leftovers from the pre-rebuild app (`prompt_templates`, `source_pool`, `test_cases`); `0004` locks them without deleting data. The owner has said the old data is not wanted: `0005_drop_old_leftovers.sql` drops them. Agents still never run destructive SQL themselves.
 3b. RLS is the access control, not the app. Every new table needs `enable row level security` plus `is_member()` policies in the same migration, written out literally. Never add a write policy on `members`. Re-run `supabase/verify_rls.sql` after any schema change.
 4. Every API handler is wrapped in `route()`. The only exception is `api/auth/login`. `proxy.ts` has no excluded app routes.
 5. Runs may only call models in the `models` table; keep that check in `createRun` (server-side), never only in the UI.
