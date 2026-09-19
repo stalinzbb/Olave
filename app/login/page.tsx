@@ -32,7 +32,7 @@ export default function LoginPage() {
       {/* method="post": without it, a page whose JavaScript failed to load would submit as GET and put the password in the URL. */}
       <form onSubmit={submit} method="post" action="/api/auth/login" className="card flex w-full max-w-sm flex-col gap-4 p-6 shadow-low">
         <div>
-          <p className="text-xs font-medium text-accent">LLM Evals</p>
+          <p className="text-xs font-medium text-accent">Olave</p>
           <h1 className="text-2xl font-semibold">Sign in</h1>
           <p className="hint mt-1">Access is by invitation. Ask the workspace owner to add your email.</p>
         </div>

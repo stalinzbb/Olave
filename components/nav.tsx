@@ -20,8 +20,8 @@ export function Nav({ email }: { email: string }) {
   return (
     <nav aria-label="Main" className="flex w-60 shrink-0 flex-col p-2">
       <div className="flex min-h-8 items-center gap-2 px-2 py-2">
-        <span aria-hidden className="grid size-8 place-items-center rounded-full bg-accent text-sm font-bold text-white">E</span>
-        <span className="text-[17px] font-semibold">LLM Evals</span>
+        <span aria-hidden className="grid size-8 place-items-center rounded-full bg-accent text-sm font-bold text-white">O</span>
+        <span className="text-[17px] font-semibold">Olave</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {GROUPS.map((group) => (
