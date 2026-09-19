@@ -116,3 +116,12 @@ export async function listPlatformModels(supabase: SupabaseClient): Promise<Plat
   const rows = must(await supabase.from("models").select("id, is_default").order("created_at"), "Models") as PlatformModel[];
   return [...rows].sort((a, b) => Number(b.is_default) - Number(a.is_default));
 }
+
+/** Server-side model allowlist check. The pickers in the UI are a convenience; this is the control. */
+export async function assertModelsAllowed(supabase: SupabaseClient, models: string[]) {
+  const allowed = new Set((await listPlatformModels(supabase)).map((model) => model.id));
+  const blocked = [...new Set(models)].filter((model) => !allowed.has(model));
+  if (blocked.length) {
+    throw new HttpError(422, `Not on the platform's model list: ${blocked.join(", ")}. Add it under Library → Models or pick another.`);
+  }
+}

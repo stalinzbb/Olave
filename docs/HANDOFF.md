@@ -82,12 +82,14 @@ lib/server/  (every file imports "server-only")
 app/layout.tsx               Root; force-dynamic so the CSP nonce reaches every script
 app/login/page.tsx           Client form → POST /api/auth/login
 app/(app)/layout.tsx         requireUser or redirect; side rail
+app/(app)/playground         Single prompt on up to 4 platform models side by side; nothing stored; "Save as eval" opens it in Studio
 app/(app)/evals/…            list · [id] (Runs + Compare tabs) · [id]/studio · [id]/runs/[runId]
 app/(app)/graders/…          list · new?engine= · [id]
 app/(app)/models             Platform model allowlist: add from the OpenRouter catalogue, remove, set default
 app/(app)/datasets, settings
 app/api/…                    auth/login (only unauthenticated handler), auth/logout, evals, evals/[id], evals/[id]/runs,
                              evals/[id]/baseline, runs/[id], runs/[id]/resume, graders, graders/[id], graders/test, datasets, datasets/[id],
+                             playground (POST: one prompt, ≤4 models, same allowlist via assertModelsAllowed, no DB writes),
                              models (POST add / PUT set default / DELETE remove; id in the body because ids contain "/")
 
 components/kit.tsx           Chip, PageHeader, Stat, Empty, Banner, Bar, FACTOR_TONE (server-safe, no hooks)

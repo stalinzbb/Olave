@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const GROUPS = [
-  { title: "Workspace", items: [{ href: "/evals", label: "Evals" }] },
+  { title: "Workspace", items: [{ href: "/playground", label: "Playground" }, { href: "/evals", label: "Evals" }] },
   { title: "Library", items: [{ href: "/datasets", label: "Datasets" }, { href: "/graders", label: "Graders" }, { href: "/models", label: "Models" }] },
   { title: "Project", items: [{ href: "/settings", label: "Settings" }] },
 ];
