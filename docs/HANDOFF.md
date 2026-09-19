@@ -94,6 +94,7 @@ app/api/…                    auth/login (only unauthenticated handler), auth/l
 
 components/kit.tsx           Chip, PageHeader, Stat, Empty, Banner, Bar, FACTOR_TONE (server-safe, no hooks)
 components/studio.tsx        The single eval editor + run driver (client)
+components/studio-variables.tsx  VariableRow (per-{{variable}} source picker that creates/removes the matching factor), ChipInput, InsertVariable
 components/results.tsx       Stats, grid/table views, cell drawer (client)
 lib/grader-defaults.ts       Default configs per engine (plain module: server pages read it)
 components/grader-editor.tsx All three engines' forms + "test on 5 cells" (client)
@@ -120,6 +121,10 @@ supabase/migrations/0005_drop_old_leftovers.sql  DESTRUCTIVE but safe on the new
 All scores are normalised to **0–1**.
 
 **RLS (after `0003_hardening.sql`)**: enabled on every table. `anon` has no policies. `authenticated` must also pass `is_member()` (a `security definer` function checking `members.user_id = auth.uid()`), so a signed-in non-member sees and changes nothing even if signups are re-enabled by mistake. `members` has no write policy: it is managed only from the SQL editor (snippets are in the migration header). `eval_versions` and `grader_versions` have select + insert policies only (append-only); deleting an eval/grader still cascades because cascades run as the table owner. Still one shared workspace among members; `created_by` is recorded for when team scoping arrives. The migrations and `verify_rls.sql` were dry-run on a local Postgres 15 with a stubbed `auth` schema: 21/21 checks ok.
+
+### How variables are set up in Studio
+
+The Prompt tab lists every `{{variable}}` found in the prompts. Each row has one picker: **One fixed value** (`spec.fixed`), **Try several values** (creates a `variable` factor named after the variable, edited as chips), or **From a dataset column** (creates the single `cases` factor if needed; a same-named column binds automatically, a different one is stored in `cases.mapping[variable] = column`). The user never has to keep a factor name in sync by hand. The tab labelled "Variations" is the Factors tab; the data model still calls them factors.
 
 ### How a run works
 
