@@ -171,6 +171,7 @@ Everything before the rebuild is at commit `1d36751`, tagged `pre-rebuild` (the 
 
 - Production is `https://dg-llm-evals.vercel.app`; every PR push also gets a preview deployment, which sits behind Vercel's own login (Deployment Protection), so it cannot be probed from outside.
 - Env vars go in Vercel → Project → Settings → Environment Variables, for **Production and Preview**. `NEXT_PUBLIC_*` values are inlined **at build time**, so after adding or changing them you must **redeploy** (a restart is not enough).
+- The Supabase public key is accepted under three names: `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`. The Vercel project uses the last one (set by Supabase's Vercel integration), which is why the first two production deploys said "not configured". `vercel env ls --scope stalin-thomas-projects --project dg-llm-evals` lists names and environments without revealing values.
 - Symptom of missing Supabase vars: the sign-in form says "Supabase is not configured." and `POST /api/auth/login` returns 503. That is the app failing closed, not a bug. This happened on the first production deploy (2026-09-19).
 - In Supabase → Authentication → URL Configuration, set the Site URL to the production URL.
 
