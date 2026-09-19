@@ -38,7 +38,9 @@ Verified:
 
 Verified against a real Supabase project in mock mode (2026-09-18, no provider keys set): sign-in, RLS as an authenticated user, evals list (including the `runs!runs_eval_id_fkey` embed), create eval, run with streaming (4 cells persisted), create code + Jev graders, "test on 5 cells", pin graders → spec v2 → graded run, Runs tab, Compare, promote to baseline, dataset upload with `reference`/`tags` columns. One bug found and fixed on the way: grader defaults were exported from a `"use client"` module and read by a server page (now `lib/grader-defaults.ts`).
 
-**Still not verified:** live OpenRouter completions, live Jev grading, the LLM judge, a Dataset cases factor inside a run, resume of an interrupted run, runs near the 500-cell cap or the 300 s limit, and a production deploy.
+Verified live with real keys (2026-09-18): Settings shows both providers connected; a 4-cell run through OpenRouter (gpt-4o-mini + claude-haiku-4.5) returned real outputs, token counts, latency (p50 ~1.1 s) and cost ($0.0006 total); the Jev grader scored every cell in one request each and its confidence flagging fired (2 of 4 flagged). Jev separated a genuinely bad cell (0.30: the model role-played a support reply instead of summarising) from good ones (0.85–1.00).
+
+**Still not verified:** the LLM judge, a Dataset cases factor inside a run, resume of an interrupted run, runs near the 500-cell cap or the 300 s limit, and a production deploy. The Jev thresholds (0.6 confidence flag, 0.5 Noul) are still defaults: calibrate them once there are human grades to compare against.
 
 ## 3. Map of the code
 
