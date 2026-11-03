@@ -126,6 +126,8 @@ export function Studio(props: StudioProps) {
   }
 
   function addFactor(kind: FactorKind) {
+    // addFactor only runs from click handlers, never during render; the timestamp keeps ids unique against saved specs.
+    // eslint-disable-next-line react-hooks/purity
     const id = `f${Date.now().toString(36)}${(nextId.current += 1)}`;
     const base = { id, enabled: true };
     const unbound = variables.find((v) => !(v in spec.fixed) && !spec.factors.some((f) => f.kind === "variable" && f.name === v));

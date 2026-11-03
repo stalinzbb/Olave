@@ -42,6 +42,8 @@ export function Playground({ models, defaultModel }: { models: string[]; default
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Draft | null;
       if (!saved) return;
       const stillAllowed = saved.models.filter((model) => models.includes(model));
+      // Deliberate: localStorage is only readable after mount, and reading it during render would break hydration.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraft({ ...saved, models: stillAllowed.length ? stillAllowed : [defaultModel] });
     } catch {
       // a corrupt draft is not worth an error
